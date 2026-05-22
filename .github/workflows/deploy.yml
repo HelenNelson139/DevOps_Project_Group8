@@ -76,6 +76,16 @@ jobs:
           resource-group: ${{ env.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
+      - name: Install cert-manager
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+          helm upgrade --install cert-manager jetstack/cert-manager \
+            --namespace cert-manager \
+            --create-namespace \
+            --set crds.enabled=true \
+            --wait
+
       - name: Update Kubernetes Manifests
         run: |
           echo "Updating ACR Login Server in manifests..."
