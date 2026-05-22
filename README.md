@@ -89,12 +89,3 @@ docker compose up -d --build
    npm install
    npm run dev
    ```
-## Environment Variables
-See `.env.example`. Main variables include:
-- `POSTGRES_*`
-- `REDIS_URL`
-- `REDIS_PORT`
-- `RABBITMQ_*`
-- `GATEWAY_PORT`
-- `JWT_SECRET`
-- `MAILTRAP_*`
