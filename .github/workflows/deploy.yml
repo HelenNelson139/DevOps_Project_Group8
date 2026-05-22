@@ -80,12 +80,17 @@ jobs:
         run: |
           kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.crds.yaml
           kubectl wait --for=condition=Established crd/clusterissuers.cert-manager.io --timeout=120s
-          helm repo add jetstack https://charts.jetstack.io
-          helm repo update
-          helm upgrade --install cert-manager jetstack/cert-manager \
-            --namespace cert-manager \
-            --create-namespace \
-            --wait
+
+          if helm status cert-manager -n cert-manager >/dev/null 2>&1; then
+            echo "cert-manager is already installed. Skipping Helm upgrade."
+          else
+            helm repo add jetstack https://charts.jetstack.io
+            helm repo update
+            helm upgrade --install cert-manager jetstack/cert-manager \
+              --namespace cert-manager \
+              --create-namespace \
+              --wait
+          fi
 
       - name: Update Kubernetes Manifests
         run: |
