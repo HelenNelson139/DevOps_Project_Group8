@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: uit-course
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/HelenNelson139/DevOps_Project_Group8.git
+    targetRevision: main
+    path: k8s
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
