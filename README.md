@@ -1,73 +1,149 @@
-# UIT Đăng ký học phần (Course Registration) - Microservices
+# UIT Course Registration - Microservices
 
-Local setup with Docker Compose. Tech stack: NestJS (backend), React + Vite + Tailwind + Ant Design (frontend), PostgreSQL, Redis, RabbitMQ.
+Local setup with Docker Compose. Tech stack: NestJS backend, React + Vite + Tailwind + Ant Design frontend, PostgreSQL, Redis, and RabbitMQ.
+
+This copy is configured as the `helen` environment so it can run side by side with another copy of the same project.
+You do not need to rename the folder; Docker Compose uses the project name `uit-dkhp-helen` from `docker-compose.yml`.
 
 ## Prerequisites
 
 - Docker and Docker Compose
-- Node 20+ (for local dev without Docker)
+- Node 20+ for local development without Docker
 
-## Quick start (Docker Compose)
+## Helen Environment
 
-1. Copy environment file and optionally adjust:
+Default local ports:
+
+- Gateway: http://localhost:8090
+- PostgreSQL: `localhost:5433`
+- Redis: `localhost:6380`
+- RabbitMQ: `localhost:5673`
+- RabbitMQ Management UI: http://localhost:15673
+
+Important container names:
+
+- PostgreSQL: `uit-dkhp-postgres-helen`
+- Redis: `uit-dkhp-redis-helen`
+- RabbitMQ: `uit-dkhp-rabbitmq-helen`
+- Gateway: `uit-dkhp-gateway-helen`
+
+## Quick Start
+
+1. Copy the environment file:
+
    ```bash
    cp .env.example .env
    ```
 
-2. Run database migrations (after Postgres is up). Wait ~5–10 seconds after starting Postgres, then:
+2. Start infrastructure first:
 
-   **Linux/macOS (bash):**
    ```bash
-   docker exec -i uit-dkhp-postgres psql -U uit -d uit_dkhp < database/migrations/001_users.sql
-   docker exec -i uit-dkhp-postgres psql -U uit -d uit_dkhp < database/migrations/002_courses_classes.sql
-   docker exec -i uit-dkhp-postgres psql -U uit -d uit_dkhp < database/migrations/003_enrollments.sql
-   docker exec -i uit-dkhp-postgres psql -U uit -d uit_dkhp < database/seed.sql
+   docker compose up -d postgres redis rabbitmq
    ```
 
-   **Windows (PowerShell)**:
+3. Run database migrations after PostgreSQL is healthy.
+
+   Windows PowerShell:
+
    ```powershell
-   Get-Content database\migrations\001_users.sql | docker exec -i uit-dkhp-postgres psql -U uit -d uit_dkhp
-   Get-Content database\migrations\002_courses_classes.sql | docker exec -i uit-dkhp-postgres psql -U uit -d uit_dkhp
-   Get-Content database\migrations\003_enrollments.sql | docker exec -i uit-dkhp-postgres psql -U uit -d uit_dkhp
-   Get-Content database\seed.sql | docker exec -i uit-dkhp-postgres psql -U uit -d uit_dkhp
+  docker cp database\migrations\001_users.sql uit-dkhp-postgres-helen:/tmp/001_users.sql
+   docker cp database\migrations\002_courses_classes.sql uit-dkhp-postgres-helen:/tmp/002_courses_classes.sql
+   docker cp database\migrations\003_enrollments.sql uit-dkhp-postgres-helen:/tmp/003_enrollments.sql
+   docker cp database\seed.sql uit-dkhp-postgres-helen:/tmp/seed.sql
+
+   docker exec -i uit-dkhp-postgres-helen psql -U uit -d uit_dkhp -f /tmp/001_users.sql
+   docker exec -i uit-dkhp-postgres-helen psql -U uit -d uit_dkhp -f /tmp/002_courses_classes.sql
+   docker exec -i uit-dkhp-postgres-helen psql -U uit -d uit_dkhp -f /tmp/003_enrollments.sql
+   docker exec -i uit-dkhp-postgres-helen psql -U uit -d uit_dkhp -f /tmp/seed.sql
    ```
 
-3. Start all services:
+4. Start all services:
+
    ```bash
    docker compose up -d
    ```
-   To rebuild: `docker compose down --rmi local` then `docker compose up -d --build`.
 
-4. Open http://localhost:8080 (gateway port; set `GATEWAY_PORT` in `.env` if you prefer another port). Login with seed user: **Mã sinh viên** `23520718`, **Mật khẩu** `password`. Admin: `admin` / `password`. (To use `password`, generate a bcrypt hash from `services/auth` and update `database/seed.sql`.)
+5. Open the app:
 
-## Project structure
+   ```text
+   http://localhost:8081
+   ```
 
-- `api-gateway/` – Nginx config (proxy + static frontend when built via Dockerfile.gateway)
-- `frontend/` – React SPA (Vite, Tailwind, Ant Design)
-- `services/auth/` – Auth service (JWT, login/me/logout)
-- `services/course/` – Course service (Excel upload, list, stats)
-- `services/registration/` – Registration service (enroll, cancel, conflict/capacity checks)
-- `services/notification/` – Notification service (RabbitMQ consumer, Mailtrap email)
-- `database/migrations/` – SQL migrations
-- `docker-compose.yml` – Full stack
-- `Dockerfile.gateway` – Builds frontend and Nginx (build from repo root)
+Seed accounts:
 
-## Local development (without Docker for backend)
+- Student: `23520718` / `password`
+- Admin: `admin` / `password`
 
-1. Start only infrastructure: `docker compose up -d postgres redis rabbitmq`
-2. Run migrations (see above).
-3. In separate terminals, from each service folder: `npm install` then `npm run start:dev`
-   - `services/auth`, `services/course`, `services/registration`, `services/notification`
-4. Frontend: `cd frontend` -> `npm install` -> `npm run dev` (Vite proxies /api to port 80; run Nginx locally or set `VITE_API_BASE_URL=http://localhost:3001` etc. and proxy per service, or run a local Nginx with same config.)
+## Reset This Environment
 
-## Environment variables
+If migrations show `already exists`, the Helen database has already been initialized. You can keep going with `database/seed.sql`, or reset only this copy:
 
-See `.env.example`. Key variables: `POSTGRES_*`, `REDIS_URL`, `RABBITMQ_*`, `JWT_SECRET`, `MAILTRAP_*` for email testing.
+```bash
+docker compose down -v
+docker compose up -d postgres redis rabbitmq
+```
 
-## Requirements
+Then run the migrations again.
 
-- See each service `README.md` and `package.json` for Node/npm scripts.
-- Root `.env.example` lists all variables for setup.
+## Run Side By Side With The Team Copy
 
-## Copyright
-This website is designed and implemented based on the Course Registration system of the University of Information Technology. It is developed solely for the NT548 course project and is intended for academic purposes only. It is not used for any commercial purposes or any improper activities.
+Typical separation:
+- Helen gateway: `http://localhost:8081`
+- Helen PostgreSQL: `localhost:5433`
+
+## Rebuild
+
+```bash
+docker compose down --rmi local
+docker compose up -d --build
+```
+
+## Project Structure
+
+- `api-gateway/` - Nginx config
+- `frontend/` - React SPA
+- `services/auth/` - Auth service
+- `services/course/` - Course service
+- `services/registration/` - Registration service
+- `services/notification/` - Notification service
+- `database/migrations/` - SQL migrations
+- `database/seed.sql` - Seed data
+- `docker-compose.yml` - Full local stack
+- `Dockerfile.gateway` - Frontend build and Nginx image
+
+## Local Development Without Docker For Backend
+
+1. Start infrastructure:
+
+   ```bash
+   docker compose up -d postgres redis rabbitmq
+   ```
+
+2. Run migrations from the Quick Start section.
+
+3. In each backend service folder, install dependencies and run dev mode:
+
+   ```bash
+   npm install
+   npm run start:dev
+   ```
+
+4. For frontend:
+
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+## Environment Variables
+
+See `.env.example`. Main variables include:
+
+- `POSTGRES_*`
+- `REDIS_URL`
+- `REDIS_PORT`
+- `RABBITMQ_*`
+- `GATEWAY_PORT`
+- `JWT_SECRET`
+- `MAILTRAP_*`

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: registration-service
-        image: YOUR_ACR.azurecr.io/registration-service:latest
+        image: uitdkhpacr2026.azurecr.io/registration-service:latest
         resources:
           requests:
             cpu: "100m"
@@ -23,7 +23,8 @@ spec:
             cpu: "500m"
             memory: "512Mi"
         ports:
-        - containerPort: 3003
+        - name: http
+          containerPort: 3003
         envFrom:
         - configMapRef:
             name: uit-dkhp-config
@@ -37,8 +38,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: registration-service
+  labels:
+    app: registration-service
 spec:
   ports:
-  - port: 3003
+  - name: http
+    port: 3003
+    targetPort: 3003
   selector:
     app: registration-service

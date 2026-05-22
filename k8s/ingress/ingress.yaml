@@ -4,7 +4,7 @@ metadata:
   name: uit-dkhp-ingress
   annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/ssl-redirect: "false" # Set to true later when cert-manager is configured
+    nginx.ingress.kubernetes.io/ssl-redirect: "false" 
 spec:
   rules:
   - http:

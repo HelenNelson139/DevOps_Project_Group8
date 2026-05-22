@@ -1,18 +1,20 @@
 # UIT Đăng ký học phần - Local Docker Compose
 # Run: docker-compose up -d
 
+name: uit-dkhp-helen
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: uit-dkhp-postgres
+    container_name: uit-dkhp-postgres-helen
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-uit}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uit_secret}
       POSTGRES_DB: ${POSTGRES_DB:-uit_dkhp}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_helen:/var/lib/postgresql/data
     networks:
       - uit-dkhp-network
     healthcheck:
@@ -23,11 +25,11 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: uit-dkhp-redis
+    container_name: uit-dkhp-redis-helen
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
-      - redis_data:/data
+      - redis_data_helen:/data
     networks:
       - uit-dkhp-network
     healthcheck:
@@ -38,13 +40,13 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: uit-dkhp-rabbitmq
+    container_name: uit-dkhp-rabbitmq-helen
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-uit}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-uit_secret}
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5673:5672"
+      - "15673:15672"
     networks:
       - uit-dkhp-network
     healthcheck:
@@ -57,10 +59,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.gateway
-    container_name: uit-dkhp-gateway
+    container_name: uit-dkhp-gateway-helen
     restart: unless-stopped
     ports:
-      - "${GATEWAY_PORT:-8080}:80"
+      - "${GATEWAY_PORT:-8090}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,7 +73,7 @@ services:
     build:
       context: ./services/auth
       dockerfile: Dockerfile
-    container_name: uit-dkhp-auth
+    container_name: uit-dkhp-auth-helen
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -91,7 +93,7 @@ services:
     build:
       context: ./services/course
       dockerfile: Dockerfile
-    container_name: uit-dkhp-course
+    container_name: uit-dkhp-course-helen
     environment:
       NODE_ENV: production
       PORT: 3002
@@ -106,7 +108,7 @@ services:
     build:
       context: ./services/registration
       dockerfile: Dockerfile
-    container_name: uit-dkhp-registration
+    container_name: uit-dkhp-registration-helen
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -128,7 +130,7 @@ services:
     build:
       context: ./services/notification
       dockerfile: Dockerfile
-    container_name: uit-dkhp-notification
+    container_name: uit-dkhp-notification-helen
     environment:
       NODE_ENV: production
       PORT: 3004
@@ -148,9 +150,10 @@ services:
       - uit-dkhp-network
 
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_data_helen:
+  redis_data_helen:
 
 networks:
   uit-dkhp-network:
+    name: uit-dkhp-network-helen
     driver: bridge

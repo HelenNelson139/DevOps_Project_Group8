@@ -23,7 +23,7 @@ variable "node_count" {
 
 variable "vm_size" {
   type    = string
-  default = "Standard_B2s"
+  default = "Standard_B2s_v2"
 }
 
 variable "vnet_subnet_id" {

@@ -4,11 +4,11 @@ variable "server_name" {
 }
 
 variable "resource_group_name" {
-  type        = string
+  type = string
 }
 
 variable "location" {
-  type        = string
+  type = string
 }
 
 variable "vnet_id" {
@@ -22,16 +22,16 @@ variable "db_subnet_id" {
 }
 
 variable "admin_user" {
-  type        = string
-  default     = "pgadmin"
+  type    = string
+  default = "pgadmin"
 }
 
 variable "admin_password" {
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "db_name" {
-  type        = string
-  default     = "uit_dkhp"
+  type    = string
+  default = "uit_dkhp"
 }

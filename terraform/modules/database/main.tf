@@ -11,17 +11,18 @@ resource "azurerm_private_dns_zone_virtual_network_link" "default" {
 }
 
 resource "azurerm_postgresql_flexible_server" "postgres" {
-  name                   = var.server_name
-  resource_group_name    = var.resource_group_name
-  location               = var.location
-  version                = "16"
-  delegated_subnet_id    = var.db_subnet_id
-  private_dns_zone_id    = azurerm_private_dns_zone.default.id
-  administrator_login    = var.admin_user
-  administrator_password = var.admin_password
-  zone                   = "1"
-  storage_mb             = 32768
-  sku_name               = "B_Standard_B1ms" 
+  name                          = var.server_name
+  resource_group_name           = var.resource_group_name
+  location                      = var.location
+  version                       = "16"
+  delegated_subnet_id           = var.db_subnet_id
+  private_dns_zone_id           = azurerm_private_dns_zone.default.id
+  public_network_access_enabled = false
+  administrator_login           = var.admin_user
+  administrator_password        = var.admin_password
+  zone                          = "1"
+  storage_mb                    = 32768
+  sku_name                      = "B_Standard_B1ms"
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.default]
 }
