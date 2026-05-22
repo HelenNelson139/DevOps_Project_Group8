@@ -1,31 +1,37 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: api-gateway
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: api-gateway
-  template:
-    metadata:
-      labels:
-        app: api-gateway
-    spec:
-      containers:
-      - name: api-gateway
-        image: uitdkhpacr2026.azurecr.io/api-gateway:latest
-        resources:
-          requests:
-            cpu: "100m"
-            memory: "128Mi"
-          limits:
-            cpu: "500m"
-            memory: "512Mi"
-        ports:
-        - name: http
-          containerPort: 80
----
+﻿# Legacy Deployment note:
+# This Deployment was used before `api-gateway` was migrated to Argo Rollouts.
+# It is kept here as documentation for presentation/rollback context only.
+# Do not apply it together with `k8s/rollouts/api-gateway-rollout.yaml`, because
+# both controllers would create pods with `app: api-gateway` and cause selector conflicts.
+#
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: api-gateway
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       app: api-gateway
+#   template:
+#     metadata:
+#       labels:
+#         app: api-gateway
+#     spec:
+#       containers:
+#       - name: api-gateway
+#         image: uitdkhpacr2026.azurecr.io/api-gateway:latest
+#         resources:
+#           requests:
+#             cpu: "100m"
+#             memory: "128Mi"
+#           limits:
+#             cpu: "500m"
+#             memory: "512Mi"
+#         ports:
+#         - name: http
+#           containerPort: 80
+# ---
 apiVersion: v1
 kind: Service
 metadata:
