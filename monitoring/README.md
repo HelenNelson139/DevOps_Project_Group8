@@ -92,19 +92,6 @@ Then open:
 ```text
 http://localhost:9090
 
-Application-specific metrics, such as request count or registration count, require the services to expose a `/metrics` endpoint and a matching `ServiceMonitor`.
-## Troubleshooting
-
-If Grafana cannot open, check whether port-forwarding is still running:
-```bash
-kubectl get svc -n monitoring
-```
-If monitoring pods are not ready:
-```bash
-kubectl get pods -n monitoring
-kubectl describe pod <POD_NAME> -n monitoring
-kubectl logs <POD_NAME> -n monitoring
-```
 If HPA shows `cpu: <unknown>`, wait a short time and check again:
 ```bash
 kubectl get hpa

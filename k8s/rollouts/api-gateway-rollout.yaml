@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-stable
+  namespace: default
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-canary
+  namespace: default
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: api-gateway-rollout
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: uitdkhpacr2026.azurecr.io/api-gateway:latest
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          ports:
+            - name: http
+              containerPort: 80
+  strategy:
+    canary:
+      canaryService: api-gateway-canary
+      stableService: api-gateway-stable
+      trafficRouting:
+        nginx:
+          stableIngress: uit-dkhp-ingress
+      steps:
+        - setWeight: 10
+        - analysis:
+            templates:
+              - templateName: ai-dqn-decision
+            args:
+              - name: rollout-name
+                value: "api-gateway-rollout"
+              - name: target-weight
+                value: "10"
+        - setWeight: 50
+        - analysis:
+            templates:
+              - templateName: ai-dqn-decision
+            args:
+              - name: rollout-name
+                value: "api-gateway-rollout"
+              - name: target-weight
+                value: "50"
+        - setWeight: 100
