@@ -16,8 +16,38 @@ env:
   AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
 
 jobs:
+  validate:
+    name: Validate source code #unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - frontend
+          - services/auth
+          - services/course
+          - services/registration
+          - services/notification
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.app }}
+        run: npm install
+
+      - name: Build
+        working-directory: ${{ matrix.app }}
+        run: npm run build
   build-and-push:
     name: Build and Push Images to ACR
+    needs: validate
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -129,4 +159,5 @@ jobs:
           kubectl rollout restart deployment/course-service
           kubectl rollout restart deployment/registration-service
           kubectl rollout restart deployment/notification-service
+
 
