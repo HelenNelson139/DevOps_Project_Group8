@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { describe, expect, it, jest } from '@jest/globals';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -27,10 +28,10 @@ describe('AuthService', () => {
     } as User;
 
     usersService = {
-      findByStudentId: jest.fn().mockResolvedValue(user),
+      findByStudentId: jest.fn(async () => user),
     };
     jwtService = {
-      sign: jest.fn().mockReturnValue('signed-token'),
+      sign: jest.fn(() => 'signed-token'),
     };
 
     authService = new AuthService(usersService as UsersService, jwtService as JwtService);
@@ -58,7 +59,7 @@ describe('AuthService', () => {
   });
 
   it('throws UnauthorizedException when login fails', async () => {
-    jest.spyOn(authService, 'validateUser').mockResolvedValue(null);
+    jest.spyOn(authService, 'validateUser').mockImplementation(async () => null);
 
     await expect(authService.login('23521023', 'wrong-password')).rejects.toBeInstanceOf(
       UnauthorizedException,
