@@ -182,8 +182,18 @@ jobs:
 
       - name: Update Kubernetes Manifests
         run: |
-          echo "Updating ACR Login Server in manifests..."
-          find k8s/services -name "*.yaml" -exec sed -i "s|YOUR_ACR.azurecr.io|${{ env.ACR_LOGIN_SERVER }}|g" {} +
+          IMAGE_TAG="${{ github.sha }}"
+          SERVICES="auth-service course-service registration-service notification-service api-gateway canary-ai-agent"
+
+          echo "Updating Kubernetes manifests to use immutable image tag: $IMAGE_TAG"
+
+          for service in $SERVICES; do
+            find k8s/services k8s/rollouts -name "*.yaml" -exec \
+              sed -i -E "s|image: .*/${service}:.*|image: ${ACR_LOGIN_SERVER}/${service}:${IMAGE_TAG}|g" {} +
+          done
+
+          find k8s/services k8s/rollouts -name "*.yaml" -exec \
+            sed -i "s|YOUR_ACR.azurecr.io|${ACR_LOGIN_SERVER}|g" {} +
 
       - name: Apply Kubernetes Manifests
         run: |
@@ -194,7 +204,7 @@ jobs:
           kubectl apply -f k8s/ingress/
           kubectl apply -f k8s/rollouts/
 
-      - name: Restart service deployments to pull latest image
+      - name: Restart service deployments for manual reruns
         run: |
           kubectl rollout restart deployment/auth-service
           kubectl rollout restart deployment/course-service
@@ -202,7 +212,7 @@ jobs:
           kubectl rollout restart deployment/notification-service
           kubectl rollout restart deployment/canary-ai-agent
 
-      - name: Restart api-gateway rollout to pull latest image
+      - name: Refresh api-gateway rollout for manual reruns
         run: |
           RESTARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           kubectl patch rollout api-gateway-rollout \
