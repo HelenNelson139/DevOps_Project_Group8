@@ -6,3 +6,4 @@ pydantic
 httpx
 torch==2.6.0+cpu
 gymnasium
+pytest
