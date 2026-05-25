@@ -1,7 +1,7 @@
-import os
+﻿import os
 import time
 import asyncio
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import logging
 
 import httpx
@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from core.feature_pipeline import RAW_KEYS, STATE_KEYS, RunningFeatureStats, normalize_raw_metrics, to_state_vector
 
-# --- 1. KIẾN TRÚC MÔ HÌNH (DRQN) ---
+
 class DRQN(nn.Module):
     def __init__(self, n_obs=8, n_actions=5):
         super(DRQN, self).__init__()
@@ -26,7 +26,7 @@ class DRQN(nn.Module):
         x = self.fc2(x[:, -1, :]) 
         return x, hidden
 
-# --- 2. CẤU HÌNH HỆ THỐNG ---
+
 MODEL_PATH = os.getenv("MODEL_PATH", "models/model_canary_drqn_best.pth")
 SEQ_LENGTH = 10
 DEVICE = torch.device("cpu")
@@ -64,7 +64,6 @@ logger.info(
     MODEL_PATH, PROMETHEUS_URL, PROM_QUERY_STEP, PROM_QUERY_WINDOW_SECONDS, SEQ_LENGTH
 )
 
-# Load model đã huấn luyện
 model = DRQN(n_obs=8, n_actions=5).to(DEVICE)
 MODEL_READY = False
 try:
@@ -75,16 +74,21 @@ try:
 except Exception as e:
     logger.exception("model_load status=failed path=%s error=%s", MODEL_PATH, e)
 
-# --- 3. ĐỊNH NGHĨA DỮ LIỆU ---
 class AppInfo(BaseModel):
     name: str
     weight: float = 0.0
     namespace: str = "default"
     canary_service: str = "my-app-canary"
     stable_service: str = "my-app-stable"
+    pod_selector: Optional[str] = None
 
 class InferenceRequest(BaseModel):
     app_info: AppInfo
+
+def _pod_selector_for(app_info: AppInfo) -> str:
+    if app_info.pod_selector:
+        return app_info.pod_selector
+    return f"{app_info.name}-.*"
 
 async def _prom_query_range(
     query: str,
@@ -142,6 +146,7 @@ async def _build_history_from_prometheus(app_info: AppInfo) -> Tuple[List[List[f
     end_ts = int(time.time())
     start_ts = end_ts - PROM_QUERY_WINDOW_SECONDS
     ns, canary_svc, stable_svc = app_info.namespace, app_info.canary_service, app_info.stable_service
+    pod_selector = _pod_selector_for(app_info)
 
     tasks = [
         _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{canary_svc}\",status=~\"5..\"}}[1m])) / clamp_min(sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m])), 0.001)", start_ts, end_ts, PROM_QUERY_STEP, empty_as_zero=True),
@@ -176,6 +181,8 @@ async def _build_history_from_prometheus(app_info: AppInfo) -> Tuple[List[List[f
         raw = {
             "weight_pct": observed_weight, "e_canary": e_canary[i], "e_stable": e_stable[i],
             "l_canary": l_canary[i], "l_stable": l_stable[i], "cpu": cpu[i], "mem_mb": mem[i], "rps": rps[i],
+            "canary_rps": canary_rps[i] if i < len(canary_rps) else 0.0,
+            "stable_rps": stable_rps[i] if i < len(stable_rps) else 0.0,
         }
         history.append(to_state_vector(raw))
         if i == SEQ_LENGTH - 1:
@@ -217,7 +224,6 @@ def _evaluate_safety_guard(latest_raw: Dict[str, float], observed_weight: float)
 
     return "", "pass"
 
-# --- 4. ENDPOINT DỰ ĐOÁN ---
 @app.post("/predict")
 async def predict(request: InferenceRequest):
     started_at = time.perf_counter()
@@ -235,20 +241,27 @@ async def predict(request: InferenceRequest):
         logger.exception("predict_abort app=%s reason=history_build_failed error='%s'", app_name, exc)
         raise HTTPException(status_code=500, detail=f"Failed to build history: {exc}")
 
-    # --- CHỐT CHẶN DEAD POD ---
-    if observed_weight > 0 and latest_canary_rps == 0.0:
+    # --- CANARY HAS WEIGHT BUT NO TRAFFIC SIGNAL ---
+    # Only rollback immediately when the Prometheus data is complete. If metrics are incomplete,
+    # return Running so Argo Rollouts can retry instead of rolling back because of missing data.
+    if data_complete and observed_weight > 0 and latest_canary_rps == 0.0:
         logger.warning("predict_decision app=%s target_weight=%.1f decision=Rollback reason='canary_dead_no_metrics'", app_name, weight)
         return {
             "action_id": 4, "decision": "Rollback", "confidence": 1.0, "traffic_signal": "rollback",
             "suggested_weight": 0.0, "latency_ms": (time.perf_counter() - started_at) * 1000.0,
+            "reason": "canary_dead_no_metrics", "data_complete": data_complete,
+            "metrics_raw": latest_raw, "metrics_normalized": latest_state,
+            "q_values": [], "model_decision": "Rollback", "guard_triggered": True,
         }
 
-    # --- CHỐT CHẶN THIẾU DATA ---
     if not data_complete:
         logger.info("predict_decision app=%s target_weight=%.1f decision=Running reason='insufficient_data'", app_name, weight)
         return {
             "action_id": -1, "decision": "Running", "confidence": 0.0, "traffic_signal": "hold",
             "suggested_weight": observed_weight, "latency_ms": (time.perf_counter() - started_at) * 1000.0,
+            "reason": "insufficient_data", "data_complete": data_complete,
+            "metrics_raw": latest_raw, "metrics_normalized": latest_state,
+            "q_values": [], "model_decision": "Running", "guard_triggered": False,
         }
 
     # --- AI INFERENCE ---
@@ -265,7 +278,7 @@ async def predict(request: InferenceRequest):
     
     logger.info("model_inference app=%s q_values=%s chosen_action=%d model_decision=%s confidence=%.3f", app_name, q_values_list, action, model_decision, confidence)
 
-    # --- TÍNH TOÁN QUYẾT ĐỊNH CUỐI CÙNG VỚI SAFETY GUARD ---
+   
     final_decision = model_decision
     reason = "model_approved"
     
@@ -290,8 +303,46 @@ async def predict(request: InferenceRequest):
         "traffic_signal": traffic_signal,
         "suggested_weight": suggested_weight,
         "latency_ms": (time.perf_counter() - started_at) * 1000.0,
+        "reason": reason,
+        "data_complete": data_complete,
+        "metrics_raw": latest_raw,
+        "metrics_normalized": latest_state,
+        "q_values": q_values_list,
+        "model_decision": model_decision,
+        "guard_triggered": bool(guard_decision),
     }
 
 @app.get("/health")
 def health():
     return {"status": "alive"}
+
+@app.get("/ready")
+async def ready():
+    if not MODEL_READY:
+        raise HTTPException(status_code=503, detail="Model is not ready")
+    try:
+        async with httpx.AsyncClient(timeout=PROM_QUERY_TIMEOUT_SECONDS) as client:
+            response = await client.get(f"{PROMETHEUS_URL}/-/ready")
+            response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=503, detail=f"Prometheus is not ready: {exc}")
+    return {"status": "ready", "model_ready": MODEL_READY, "prometheus_url": PROMETHEUS_URL}
+
+@app.get("/model")
+def model_info():
+    return {
+        "model_ready": MODEL_READY,
+        "model_path": MODEL_PATH,
+        "model_type": "DRQN",
+        "sequence_length": SEQ_LENGTH,
+        "raw_features": RAW_KEYS,
+        "state_features": STATE_KEYS,
+        "actions": {
+            "0": "increase-fast",
+            "1": "increase-slow",
+            "2": "hold",
+            "3": "rollback",
+            "4": "rollback",
+        },
+    }
+
