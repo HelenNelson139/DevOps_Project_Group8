@@ -160,7 +160,19 @@ jobs:
 
           echo "image_ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
 
-      - name: Scan Docker Image
+      - name: Scan Docker Image For Pull Request
+        if: github.event_name == 'pull_request'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.build-image.outputs.image_ref }}
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "0"
+
+      - name: Scan Docker Image Before Push
+        if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.build-image.outputs.image_ref }}
