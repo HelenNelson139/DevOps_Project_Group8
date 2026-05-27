@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: registration-service
-        image: uitdkhpacr2026.azurecr.io/registration-service:latest
+        image: uitdkhpacr2026.azurecr.io/registration-service:492e5ca5160e9dbec0c5f3677c333b6c755b0008
         resources:
           requests:
             cpu: "100m"
