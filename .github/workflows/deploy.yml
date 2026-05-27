@@ -186,7 +186,7 @@ jobs:
 
       - name: Update Kubernetes Manifests
         run: |
-          IMAGE_TAG="${{ github.sha }}"
+          export IMAGE_TAG="${{ github.sha }}"
           SERVICES="auth-service course-service registration-service notification-service api-gateway canary-ai-agent db-migration"
 
           echo "Updating Kubernetes manifests to use immutable image tag: $IMAGE_TAG"
