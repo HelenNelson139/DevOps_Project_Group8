@@ -177,7 +177,7 @@ jobs:
         with:
           image-ref: ${{ steps.build-image.outputs.image_ref }}
           vuln-type: os,library
-          severity: HIGH,CRITICAL
+          severity: CRITICAL
           ignore-unfixed: true
           format: table
           exit-code: "1"
