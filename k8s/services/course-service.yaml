@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: course-service
-          image: 'uitdkhpacr2026.azurecr.io/course-service:'
+          image: 'uitdkhpacr2026.azurecr.io/course-service:e2599986af7287d51f4da960728623ad237fc4eb'
           resources:
             requests:
               cpu: "100m"
