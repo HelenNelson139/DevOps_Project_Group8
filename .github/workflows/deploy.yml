@@ -12,8 +12,6 @@ on:
 env:
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
   ACR_NAME: ${{ secrets.ACR_NAME }}
-  AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
-  AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
 
 jobs:
   validate:
@@ -90,6 +88,7 @@ jobs:
           - notification-service
           - api-gateway
           - canary-ai-agent
+          - db-migration
 
     steps:
       - name: Checkout Code
@@ -113,6 +112,9 @@ jobs:
           elif [ "${{ matrix.service }}" = "canary-ai-agent" ]; then
             CONTEXT="ai-agent"
             DOCKERFILE="ai-agent/Dockerfile"
+          elif [ "${{ matrix.service }}" = "db-migration" ]; then
+            CONTEXT="database"
+            DOCKERFILE="database/Dockerfile"
           else
             DIR_NAME=$(echo "${{ matrix.service }}" | sed 's/-service//')
             CONTEXT="services/$DIR_NAME"
@@ -143,78 +145,45 @@ jobs:
           docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:$TAG"
           docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest"
 
-  deploy-to-aks:
-    name: Deploy to Azure Kubernetes Service
+  update-gitops-manifests:
+    name: Update GitOps manifests for Argo CD
     needs: build-and-push
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Set AKS Context
-        uses: azure/aks-set-context@v3
-        with:
-          resource-group: ${{ env.AKS_RESOURCE_GROUP }}
-          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
-
-      - name: Install cert-manager
-        run: |
-          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.crds.yaml
-          kubectl wait --for=condition=Established crd/clusterissuers.cert-manager.io --timeout=120s
-
-          if helm status cert-manager -n cert-manager >/dev/null 2>&1; then
-            echo "cert-manager is already installed. Skipping Helm upgrade."
-          else
-            helm repo add jetstack https://charts.jetstack.io
-            helm repo update
-            helm upgrade --install cert-manager jetstack/cert-manager \
-              --namespace cert-manager \
-              --create-namespace \
-              --wait
-          fi
+          ref: ${{ github.ref_name }}
 
       - name: Update Kubernetes Manifests
         run: |
           IMAGE_TAG="${{ github.sha }}"
-          SERVICES="auth-service course-service registration-service notification-service api-gateway canary-ai-agent"
+          SERVICES="auth-service course-service registration-service notification-service api-gateway canary-ai-agent db-migration"
 
           echo "Updating Kubernetes manifests to use immutable image tag: $IMAGE_TAG"
 
           for service in $SERVICES; do
-            find k8s/services k8s/rollouts -name "*.yaml" -exec \
+            find k8s/services k8s/rollouts k8s/jobs -name "*.yaml" -exec \
               sed -i -E "s|image: .*/${service}:.*|image: ${ACR_LOGIN_SERVER}/${service}:${IMAGE_TAG}|g" {} +
           done
 
-          find k8s/services k8s/rollouts -name "*.yaml" -exec \
+          find k8s/services k8s/rollouts k8s/jobs -name "*.yaml" -exec \
             sed -i "s|YOUR_ACR.azurecr.io|${ACR_LOGIN_SERVER}|g" {} +
 
-      - name: Apply Kubernetes Manifests
+      - name: Commit updated manifests
         run: |
-          kubectl apply -f k8s/base/
-          kubectl apply -f k8s/backing-services/
-          kubectl apply -f k8s/services/
-          kubectl apply -f k8s/autoscaling/
-          kubectl apply -f k8s/ingress/
-          kubectl apply -f k8s/rollouts/
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add k8s/services k8s/rollouts k8s/jobs
 
-      - name: Restart service deployments for manual reruns
-        run: |
-          kubectl rollout restart deployment/auth-service
-          kubectl rollout restart deployment/course-service
-          kubectl rollout restart deployment/registration-service
-          kubectl rollout restart deployment/notification-service
-          kubectl rollout restart deployment/canary-ai-agent
+          if git diff --cached --quiet; then
+            echo "No manifest image tag changes to commit."
+            exit 0
+          fi
 
-      - name: Refresh api-gateway rollout for manual reruns
-        run: |
-          RESTARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          kubectl patch rollout api-gateway-rollout \
-            --type=merge \
-            -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"restartedAt\":\"$RESTARTED_AT\"}}}}}"
+          git commit -m "Update image tags to ${{ github.sha }} [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}

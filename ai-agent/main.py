@@ -155,8 +155,8 @@ async def _build_history_from_prometheus(app_info: AppInfo) -> Tuple[List[List[f
         _prom_query_range(f"histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m])))", start_ts, end_ts, PROM_QUERY_STEP),
         _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
         _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"avg(rate(container_cpu_usage_seconds_total{{namespace=\"{ns}\",pod=~\"my-app-release-.*\",container!=\"\",container!=\"POD\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"avg(container_memory_working_set_bytes{{namespace=\"{ns}\",pod=~\"my-app-release-.*\",container!=\"\",container!=\"POD\"}}) / 1048576", start_ts, end_ts, PROM_QUERY_STEP),
+        _prom_query_range(f"avg(rate(container_cpu_usage_seconds_total{{namespace=\"{ns}\",pod=~\"{pod_selector}\",container!=\"\",container!=\"POD\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
+        _prom_query_range(f"avg(container_memory_working_set_bytes{{namespace=\"{ns}\",pod=~\"{pod_selector}\",container!=\"\",container!=\"POD\"}}) / 1048576", start_ts, end_ts, PROM_QUERY_STEP),
         _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=~\"{canary_svc}|{stable_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP)
     ]
 

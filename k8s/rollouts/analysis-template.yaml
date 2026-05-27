@@ -36,6 +36,7 @@ spec:
               namespace: "default"
               canary_service: "api-gateway-canary"
               stable_service: "api-gateway-stable"
+              pod_selector: "api-gateway-rollout-.*"
               
       # --- 3. ĐỊNH NGHĨA LẠI LUỒNG LOGIC QUYẾT ĐỊNH ---
       successCondition: "result.decision == 'Successful'"

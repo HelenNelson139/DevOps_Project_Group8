@@ -1,10 +1,15 @@
--- UIT Đăng ký học phần - Enrollments (student registrations)
--- Run order: 003 (after 002)
+-- UIT course registration - Enrollments
+-- Run order: 003 after 002
 
-CREATE TYPE enrollment_status AS ENUM ('registered', 'cancelled');
+DO $$
+BEGIN
+  CREATE TYPE enrollment_status AS ENUM ('registered', 'cancelled');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE enrollments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS enrollments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
     status enrollment_status NOT NULL DEFAULT 'registered',
@@ -15,9 +20,9 @@ CREATE TABLE enrollments (
     UNIQUE(user_id, class_id)
 );
 
-CREATE INDEX idx_enrollments_user_id ON enrollments(user_id);
-CREATE INDEX idx_enrollments_class_id ON enrollments(class_id);
-CREATE INDEX idx_enrollments_status ON enrollments(status);
-CREATE INDEX idx_enrollments_user_class ON enrollments(user_id, class_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_user_id ON enrollments(user_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_class_id ON enrollments(class_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_status ON enrollments(status);
+CREATE INDEX IF NOT EXISTS idx_enrollments_user_class ON enrollments(user_id, class_id);
 
 COMMENT ON TABLE enrollments IS 'Student course registration; one row per user per class, status tracks cancellation';

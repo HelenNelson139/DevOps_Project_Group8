@@ -33,9 +33,20 @@ kubectl get rollout
 kubectl describe rollout api-gateway-rollout
 kubectl get analysisrun
 ```
-## Notes
-- `api-gateway-rollout.yaml` replaces the old `api-gateway` Deployment.
-- Do not run the old `api-gateway` Deployment and the Rollout at the same time because both use label `app=api-gateway`.
-- Ingress must route traffic to `api-gateway-stable`.
-- HPA should target `Rollout/api-gateway-rollout`.
-- The AI agent reads Prometheus metrics and returns rollout decisions through `analysis-template.yaml`.
+## Prometheus Metric Checks
+The AI agent needs Prometheus data for the rollout pods and for stable/canary traffic.
+Check that the pod selector used by `analysis-template.yaml` matches real rollout pods:
+```powershell
+kubectl get pods -n default -l app=api-gateway
+kubectl logs deploy/canary-ai-agent -n default | Select-String "history_build"
+```
+If `metrics_raw` is all zero, verify the Prometheus queries used by the agent. The rollout pod metrics should match:
+```promql
+container_cpu_usage_seconds_total{namespace="default",pod=~"api-gateway-rollout-.*"}
+container_memory_working_set_bytes{namespace="default",pod=~"api-gateway-rollout-.*"}
+```
+HTTP traffic metrics must also exist for the stable and canary services, or the agent will return `Running` with `reason="insufficient_data"`:
+```promql
+http_requests_total{namespace="default",service=~"api-gateway-canary|api-gateway-stable"}
+http_request_duration_seconds_bucket{namespace="default",service=~"api-gateway-canary|api-gateway-stable"}
+```

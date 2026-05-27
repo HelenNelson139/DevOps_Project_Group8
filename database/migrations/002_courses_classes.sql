@@ -1,10 +1,15 @@
--- UIT Đăng ký học phần - Courses and classes (from Excel upload)
--- Run order: 002 (after 001)
+-- UIT course registration - Courses and classes from Excel upload
+-- Run order: 002 after 001
 
-CREATE TYPE sheet_type AS ENUM ('theory', 'practice');
+DO $$
+BEGIN
+  CREATE TYPE sheet_type AS ENUM ('theory', 'practice');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TABLE courses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS courses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     course_code VARCHAR(32) NOT NULL,
     name VARCHAR(512) NOT NULL,
     credits INT NOT NULL DEFAULT 0,
@@ -16,8 +21,8 @@ CREATE TABLE courses (
     UNIQUE(course_code, semester, academic_year, sheet_type)
 );
 
-CREATE TABLE classes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS classes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     class_code VARCHAR(64) NOT NULL,
     max_students INT NOT NULL DEFAULT 0,
@@ -37,9 +42,9 @@ CREATE TABLE classes (
     UNIQUE(course_id, class_code)
 );
 
-CREATE INDEX idx_courses_code_semester_year ON courses(course_code, semester, academic_year);
-CREATE INDEX idx_classes_course_id ON classes(course_id);
-CREATE INDEX idx_classes_class_code ON classes(class_code);
+CREATE INDEX IF NOT EXISTS idx_courses_code_semester_year ON courses(course_code, semester, academic_year);
+CREATE INDEX IF NOT EXISTS idx_classes_course_id ON classes(course_id);
+CREATE INDEX IF NOT EXISTS idx_classes_class_code ON classes(class_code);
 
-COMMENT ON TABLE courses IS 'Course master from Excel (Mã MH, Tên Môn Học, Số TC)';
-COMMENT ON TABLE classes IS 'Class sections from Excel (Mã Lớp, Sĩ số, Thứ, Tiết, Giảng viên, etc.)';
+COMMENT ON TABLE courses IS 'Course master from Excel upload';
+COMMENT ON TABLE classes IS 'Class sections from Excel upload';
