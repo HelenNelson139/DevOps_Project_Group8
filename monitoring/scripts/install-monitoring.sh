@@ -15,8 +15,10 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
   -f monitoring/helm/kube-prometheus-stack-values.yaml \
   --wait
 
-echo "Applying monitoring alert rules..."
+echo "Applying project monitoring resources..."
 kubectl apply -f monitoring/rules/
+kubectl apply -f monitoring/service-monitors/
+kubectl apply -f monitoring/dashboards/
 
 echo "Monitoring stack installed successfully."
 echo "Run this command to open Grafana:"

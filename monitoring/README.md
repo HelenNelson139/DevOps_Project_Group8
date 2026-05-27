@@ -30,10 +30,27 @@ The script will:
 1. Add and update the `prometheus-community` Helm repo.
 2. Create the `monitoring` namespace.
 3. Install `kube-prometheus-stack` with values from `monitoring/helm/kube-prometheus-stack-values.yaml`.
-4. Apply project alert rules from `monitoring/rules/`.
+4. Apply project alert rules, ServiceMonitors, and Grafana dashboards.
+
+## Application Metrics
+The Node.js services expose Prometheus metrics at `/metrics`.
+Prometheus scrapes them through `monitoring/service-monitors/uit-course-services.yaml`.
+
+Current application metrics include:
+- `uit_course_http_requests_total`
+- `uit_course_http_request_duration_seconds`
+- `uit_course_nodejs_memory_bytes`
+
+These metrics are collected from:
+- `auth-service`
+- `course-service`
+- `registration-service`
+- `notification-service`
+
+Because `/metrics` is served by the application code, these service images must be rebuilt and redeployed before Prometheus can scrape the new metrics.
 
 ## Alert Rules
-The project includes basic Prometheus alerts in `monitoring/rules/basic-alerts.yaml`.
+The project includes Kubernetes-level alerts in `monitoring/rules/basic-alerts.yaml`.
 These alerts cover:
 - Pods stuck in `CrashLoopBackOff`
 - Pods stuck in `Pending`, `Unknown`, or `Failed`
@@ -41,30 +58,33 @@ These alerts cover:
 - HPA staying at max replicas
 - Prometheus scrape targets going down
 
-If the monitoring stack is already installed, apply or update only the rules:
+The project also includes app-level alerts in `monitoring/rules/app-alerts.yaml`.
+These alerts cover:
+- HTTP 5xx error rate above 5%
+- HTTP p95 latency above 1 second
+- Missing UIT Course service metrics targets
+
+If the monitoring stack is already installed, apply or update the project monitoring resources:
 ```powershell
 .\monitoring\scripts\apply-monitoring-rules.ps1
 ```
-
 Or with Bash:
 ```bash
 bash monitoring/scripts/apply-monitoring-rules.sh
 ```
-
 Check the rules:
 ```bash
 kubectl get prometheusrule -n monitoring
+kubectl get servicemonitor -n monitoring
+kubectl get configmap -n monitoring -l grafana_dashboard=1
 ```
-
 ## Teams Alerts
 Alertmanager can send Prometheus alerts to Microsoft Teams without committing the webhook URL to Git.
-
 Set the webhook URL in your local shell, then apply the Teams Alertmanager config:
 ```powershell
 $env:TEAMS_WEBHOOK_URL="https://..."
 .\monitoring\scripts\apply-alertmanager-teams.ps1
 ```
-
 Or with Bash:
 ```bash
 export TEAMS_WEBHOOK_URL="https://..."
@@ -74,7 +94,7 @@ bash monitoring/scripts/apply-alertmanager-teams.sh
 The script will:
 1. Create or update the `alertmanager-teams-webhook` Kubernetes Secret.
 2. Upgrade `kube-prometheus-stack` with `monitoring/helm/alertmanager-teams-values.yaml`.
-3. Apply the project alert rules.
+3. Apply the project monitoring resources.
 
 Check the secret and Alertmanager:
 ```bash
@@ -82,8 +102,6 @@ kubectl get secret alertmanager-teams-webhook -n monitoring
 kubectl get alertmanager -n monitoring
 kubectl get pods -n monitoring | grep alertmanager
 ```
-
-The webhook value is stored in the cluster Secret, not in this repository.
 
 ## Check Monitoring
 Run:
@@ -126,6 +144,7 @@ Useful dashboards:
 - `Kubernetes / Compute Resources / Namespace`
 - `Kubernetes / Compute Resources / Pod`
 - `Kubernetes / Compute Resources / Node`
+- `UIT Course Services`
 
 For this project, select the `default` namespace to view app metrics for:
 

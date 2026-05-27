@@ -13,6 +13,12 @@ kubectl get svc -n monitoring
 echo "Checking Prometheus alert rules..."
 kubectl get prometheusrule -n monitoring
 
+echo "Checking ServiceMonitors..."
+kubectl get servicemonitor -n monitoring
+
+echo "Checking Grafana dashboards..."
+kubectl get configmap -n monitoring -l grafana_dashboard=1
+
 echo "Checking app pods..."
 kubectl get pods
 
