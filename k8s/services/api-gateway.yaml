@@ -1,4 +1,4 @@
-﻿# Legacy Deployment note:
+# Legacy Deployment note:
 # This Deployment was used before `api-gateway` was migrated to Argo Rollouts.
 # It is kept here as documentation for presentation/rollback context only.
 # Do not apply it together with `k8s/rollouts/api-gateway-rollout.yaml`, because
@@ -40,8 +40,8 @@ metadata:
     app: api-gateway
 spec:
   ports:
-  - name: http
-    port: 80
-    targetPort: 80
+    - name: http
+      port: 80
+      targetPort: 80
   selector:
     app: api-gateway

@@ -12,15 +12,12 @@ spec:
       interval: 30s
       count: 5
       initialDelay: 60s
-      
       # --- 1. TĂNG SỨC CHỊU ĐỰNG LỖI MẠNG (HTTP 500, Timeout) ---
       # Cho phép Agent lỗi kết nối hoặc Prometheus timeout tối đa 5 lần liên tiếp
       consecutiveErrorLimit: 5
-      
       # --- 2. XỬ LÝ TRẠNG THÁI "CHỜ" CỦA AI ---
       # Cho phép AI Agent trả về "Running" tối đa 5 lần (bằng đúng số count)
       inconclusiveLimit: 3
-
       provider:
         web:
           url: "http://canary-ai-agent-svc.default.svc.cluster.local/predict"
@@ -37,7 +34,6 @@ spec:
               canary_service: "api-gateway-canary"
               stable_service: "api-gateway-stable"
               pod_selector: "api-gateway-rollout-.*"
-              
       # --- 3. ĐỊNH NGHĨA LẠI LUỒNG LOGIC QUYẾT ĐỊNH ---
       successCondition: "result.decision == 'Successful'"
       failureCondition: "result.decision == 'Rollback'"
