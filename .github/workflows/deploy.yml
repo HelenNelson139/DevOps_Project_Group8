@@ -13,6 +13,10 @@ env:
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
   ACR_NAME: ${{ secrets.ACR_NAME }}
 
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     name: Validate Node applications
@@ -35,10 +39,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
 
       - name: Install dependencies
         working-directory: ${{ matrix.app }}
-        run: npm install
+        run: npm ci
 
       - name: Run unit tests
         working-directory: ${{ matrix.app }}
@@ -60,6 +66,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: pip
+          cache-dependency-path: ai-agent/requirements.txt
 
       - name: Install dependencies
         working-directory: ai-agent
@@ -94,6 +102,9 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Azure Login
         if: github.event_name != 'pull_request'
         uses: azure/login@v1
@@ -105,6 +116,7 @@ jobs:
         run: az acr login --name ${{ env.ACR_NAME }}
 
       - name: Build Docker Image
+        id: build-image
         run: |
           if [ "${{ matrix.service }}" = "api-gateway" ]; then
             CONTEXT="."
@@ -127,23 +139,40 @@ jobs:
           echo "Building $IMAGE_NAME with context $CONTEXT and Dockerfile $DOCKERFILE..."
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            docker build -t "$IMAGE_NAME:pr-$TAG" -f "$DOCKERFILE" "$CONTEXT"
-          else
-            docker build \
-              -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:$TAG" \
-              -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest" \
+            IMAGE_REF="$IMAGE_NAME:pr-$TAG"
+            docker buildx build \
+              --cache-from type=gha,scope="$IMAGE_NAME" \
+              --cache-to type=gha,mode=max,scope="$IMAGE_NAME" \
+              -t "$IMAGE_REF" \
               -f "$DOCKERFILE" \
+              --load \
+              "$CONTEXT"
+          else
+            IMAGE_REF="$ACR_LOGIN_SERVER/$IMAGE_NAME:$TAG"
+            docker buildx build \
+              --cache-from type=gha,scope="$IMAGE_NAME" \
+              --cache-to type=gha,mode=max,scope="$IMAGE_NAME" \
+              -t "$IMAGE_REF" \
+              -f "$DOCKERFILE" \
+              --load \
               "$CONTEXT"
           fi
 
+          echo "image_ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Scan Docker Image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.build-image.outputs.image_ref }}
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
       - name: Push Docker Image
         if: github.event_name != 'pull_request'
-        run: |
-          IMAGE_NAME="${{ matrix.service }}"
-          TAG="${{ github.sha }}"
-
-          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:$TAG"
-          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest"
+        run: docker push "${{ steps.build-image.outputs.image_ref }}"
 
   update-gitops-manifests:
     name: Update GitOps manifests for Argo CD
@@ -159,6 +188,12 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
       - name: Update Kubernetes Manifests
         run: |
           IMAGE_TAG="${{ github.sha }}"
@@ -167,12 +202,30 @@ jobs:
           echo "Updating Kubernetes manifests to use immutable image tag: $IMAGE_TAG"
 
           for service in $SERVICES; do
-            find k8s/services k8s/rollouts k8s/jobs -name "*.yaml" -exec \
-              sed -i -E "s|image: .*/${service}:.*|image: ${ACR_LOGIN_SERVER}/${service}:${IMAGE_TAG}|g" {} +
+            while IFS= read -r manifest; do
+              yq -i '
+                (.. | select(tag == "!!map" and has("image")).image | select(test("/'"$service"':"))) =
+                  strenv(ACR_LOGIN_SERVER) + "/'"$service"':" + strenv(IMAGE_TAG)
+              ' "$manifest"
+            done < <(find k8s/services k8s/rollouts k8s/jobs -name "*.yaml")
           done
 
-          find k8s/services k8s/rollouts k8s/jobs -name "*.yaml" -exec \
-            sed -i "s|YOUR_ACR.azurecr.io|${ACR_LOGIN_SERVER}|g" {} +
+      - name: Validate Kubernetes Manifests
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            -w /work \
+            ghcr.io/yannh/kubeconform:latest \
+            -strict \
+            -summary \
+            -ignore-missing-schemas \
+            k8s/base \
+            k8s/backing-services \
+            k8s/services \
+            k8s/autoscaling \
+            k8s/ingress \
+            k8s/rollouts \
+            k8s/jobs
 
       - name: Commit updated manifests
         run: |
