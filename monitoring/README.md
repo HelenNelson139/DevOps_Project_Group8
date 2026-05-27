@@ -30,6 +30,61 @@ The script will:
 1. Add and update the `prometheus-community` Helm repo.
 2. Create the `monitoring` namespace.
 3. Install `kube-prometheus-stack` with values from `monitoring/helm/kube-prometheus-stack-values.yaml`.
+4. Apply project alert rules from `monitoring/rules/`.
+
+## Alert Rules
+The project includes basic Prometheus alerts in `monitoring/rules/basic-alerts.yaml`.
+These alerts cover:
+- Pods stuck in `CrashLoopBackOff`
+- Pods stuck in `Pending`, `Unknown`, or `Failed`
+- Deployments with unavailable replicas
+- HPA staying at max replicas
+- Prometheus scrape targets going down
+
+If the monitoring stack is already installed, apply or update only the rules:
+```powershell
+.\monitoring\scripts\apply-monitoring-rules.ps1
+```
+
+Or with Bash:
+```bash
+bash monitoring/scripts/apply-monitoring-rules.sh
+```
+
+Check the rules:
+```bash
+kubectl get prometheusrule -n monitoring
+```
+
+## Teams Alerts
+Alertmanager can send Prometheus alerts to Microsoft Teams without committing the webhook URL to Git.
+
+Set the webhook URL in your local shell, then apply the Teams Alertmanager config:
+```powershell
+$env:TEAMS_WEBHOOK_URL="https://..."
+.\monitoring\scripts\apply-alertmanager-teams.ps1
+```
+
+Or with Bash:
+```bash
+export TEAMS_WEBHOOK_URL="https://..."
+bash monitoring/scripts/apply-alertmanager-teams.sh
+```
+
+The script will:
+1. Create or update the `alertmanager-teams-webhook` Kubernetes Secret.
+2. Upgrade `kube-prometheus-stack` with `monitoring/helm/alertmanager-teams-values.yaml`.
+3. Apply the project alert rules.
+
+Check the secret and Alertmanager:
+```bash
+kubectl get secret alertmanager-teams-webhook -n monitoring
+kubectl get alertmanager -n monitoring
+kubectl get pods -n monitoring | grep alertmanager
+```
+
+The webhook value is stored in the cluster Secret, not in this repository.
+
 ## Check Monitoring
 Run:
 ```bash
@@ -91,6 +146,7 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 Then open:
 ```text
 http://localhost:9090
+```
 
 If HPA shows `cpu: <unknown>`, wait a short time and check again:
 ```bash
