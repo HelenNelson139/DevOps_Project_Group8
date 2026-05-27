@@ -1,0 +1,27 @@
+alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by:
+        - namespace
+        - alertname
+        - severity
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: teams
+      routes:
+        - matchers:
+            - alertname = "Watchdog"
+          receiver: "null"
+    receivers:
+      - name: "null"
+      - name: teams
+        msteamsv2_configs:
+          - webhook_url_file: /etc/alertmanager/secrets/alertmanager-teams-webhook/teams-webhook-url
+            send_resolved: true
+
+  alertmanagerSpec:
+    secrets:
+      - alertmanager-teams-webhook

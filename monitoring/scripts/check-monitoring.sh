@@ -10,6 +10,9 @@ kubectl get pods -n monitoring
 echo "Checking monitoring services..."
 kubectl get svc -n monitoring
 
+echo "Checking Prometheus alert rules..."
+kubectl get prometheusrule -n monitoring
+
 echo "Checking app pods..."
 kubectl get pods
 
