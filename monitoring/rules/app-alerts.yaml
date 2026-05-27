@@ -1,0 +1,48 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: uit-course-app-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+    app.kubernetes.io/part-of: uit-course
+spec:
+  groups:
+    - name: uit-course.app
+      rules:
+        - alert: UITCourseHighHttpErrorRate
+          expr: |
+            (
+              sum by (service) (rate(uit_course_http_requests_total{status_code=~"5.."}[5m]))
+              /
+              clamp_min(sum by (service) (rate(uit_course_http_requests_total[5m])), 0.001)
+            ) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High HTTP 5xx error rate"
+            description: "Service {{ $labels.service }} has more than 5% HTTP 5xx responses for 10 minutes."
+
+        - alert: UITCourseHighHttpLatencyP95
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (service, le) (rate(uit_course_http_request_duration_seconds_bucket[5m]))
+            ) > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High HTTP p95 latency"
+            description: "Service {{ $labels.service }} has p95 latency above 1 second for 10 minutes."
+
+        - alert: UITCourseMetricsMissing
+          expr: |
+            absent(up{namespace="default", service=~"auth-service|course-service|registration-service|notification-service"})
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "UIT Course service metrics are missing"
+            description: "Prometheus has no UIT Course service metrics targets. Check the ServiceMonitor and service labels."

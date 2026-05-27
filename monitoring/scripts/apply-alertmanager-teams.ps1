@@ -19,4 +19,6 @@ helm upgrade --install prometheus prometheus-community/kube-prometheus-stack `
   --wait
 
 kubectl apply -f monitoring/rules/
+kubectl apply -f monitoring/service-monitors/
+kubectl apply -f monitoring/dashboards/
 kubectl get secret alertmanager-teams-webhook -n monitoring

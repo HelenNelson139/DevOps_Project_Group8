@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CoursesModule } from './courses/courses.module';
 import { Course } from './courses/entities/course.entity';
 import { Class } from './courses/entities/class.entity';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { Class } from './courses/entities/class.entity';
       logging: process.env.NODE_ENV !== 'production',
     }),
     CoursesModule,
+    MonitoringModule,
   ],
 })
 export class AppModule {}
