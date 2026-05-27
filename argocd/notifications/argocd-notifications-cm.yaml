@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.webhook.teams: |
+    url: $teams-webhook-url
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  template.teams-sync-failed: |
+    webhook:
+      teams:
+        method: POST
+        body: |
+          {
+            "@type": "MessageCard",
+            "@context": "https://schema.org/extensions",
+            "summary": "Argo CD sync failed",
+            "themeColor": "D13438",
+            "title": "Argo CD sync failed",
+            "text": "Application **{{.app.metadata.name}}** failed to sync.",
+            "sections": [
+              {
+                "facts": [
+                  {
+                    "name": "Application",
+                    "value": "{{.app.metadata.name}}"
+                  },
+                  {
+                    "name": "Namespace",
+                    "value": "{{.app.metadata.namespace}}"
+                  },
+                  {
+                    "name": "Sync status",
+                    "value": "{{.app.status.sync.status}}"
+                  },
+                  {
+                    "name": "Health status",
+                    "value": "{{.app.status.health.status}}"
+                  },
+                  {
+                    "name": "Revision",
+                    "value": "{{.app.status.sync.revision}}"
+                  }
+                ]
+              }
+            ]
+          }
+
+  template.teams-health-degraded: |
+    webhook:
+      teams:
+        method: POST
+        body: |
+          {
+            "@type": "MessageCard",
+            "@context": "https://schema.org/extensions",
+            "summary": "Argo CD application health alert",
+            "themeColor": "F7630C",
+            "title": "Argo CD application health alert",
+            "text": "Application **{{.app.metadata.name}}** is **{{.app.status.health.status}}**.",
+            "sections": [
+              {
+                "facts": [
+                  {
+                    "name": "Application",
+                    "value": "{{.app.metadata.name}}"
+                  },
+                  {
+                    "name": "Namespace",
+                    "value": "{{.app.metadata.namespace}}"
+                  },
+                  {
+                    "name": "Sync status",
+                    "value": "{{.app.status.sync.status}}"
+                  },
+                  {
+                    "name": "Health status",
+                    "value": "{{.app.status.health.status}}"
+                  },
+                  {
+                    "name": "Revision",
+                    "value": "{{.app.status.sync.revision}}"
+                  }
+                ]
+              }
+            ]
+          }
+
+  trigger.on-sync-failed: |
+    - when: app.status.operationState != nil && app.status.operationState.phase in ['Error', 'Failed']
+      send:
+        - teams-sync-failed
+      oncePer: app.status.sync.revision
+
+  trigger.on-health-degraded: |
+    - when: app.status.health.status in ['Degraded', 'Suspended']
+      send:
+        - teams-health-degraded
+      oncePer: app.status.health.status
+
+  subscriptions: |
+    - recipients:
+        - webhook:teams
+      triggers:
+        - on-sync-failed
+        - on-health-degraded

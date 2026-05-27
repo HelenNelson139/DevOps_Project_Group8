@@ -230,3 +230,33 @@ jobs:
 
           git commit -m "Update image tags to ${{ github.sha }} [skip ci]"
           git push origin HEAD:${{ github.ref_name }}
+
+  notify-on-failure:
+    name: Notify CI/CD failure
+    needs:
+      - validate
+      - validate-ai-agent
+      - build-and-push
+      - update-gitops-manifests
+    if: ${{ always() && (contains(join(needs.*.result, ','), 'failure') || contains(join(needs.*.result, ','), 'cancelled')) }}
+    runs-on: ubuntu-latest
+    env:
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+      WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    steps:
+      - name: Send failure notification
+        run: |
+          MESSAGE="CI/CD failed for ${{ github.repository }} on branch ${{ github.ref_name }} at commit ${{ github.sha }}. Run: $WORKFLOW_URL"
+          export MESSAGE
+
+          if [ -n "$TEAMS_WEBHOOK_URL" ]; then
+            curl -X POST \
+              -H "Content-Type: application/json" \
+              --data "{\"@type\":\"MessageCard\",\"@context\":\"https://schema.org/extensions\",\"summary\":\"CI/CD failed\",\"themeColor\":\"D13438\",\"title\":\"CI/CD pipeline failed\",\"text\":\"$MESSAGE\"}" \
+              "$TEAMS_WEBHOOK_URL"
+          fi
+
+          if [ -z "$TEAMS_WEBHOOK_URL" ]; then
+            echo "No notification channel configured. Add TEAMS_WEBHOOK_URL repository secret to enable Teams notifications."
+          fi

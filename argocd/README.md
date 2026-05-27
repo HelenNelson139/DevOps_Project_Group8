@@ -52,6 +52,32 @@ Or manually:
 kubectl get pods -n argocd
 kubectl get svc -n argocd
 ```
+## Argo CD Failure Notifications
+Argo CD can send Teams notifications when the application sync fails or health becomes `Degraded`/`Suspended`.
+
+Create a Teams webhook and set it only in your shell, not in Git:
+```powershell
+$env:TEAMS_WEBHOOK_URL="https://..."
+.\argocd\scripts\apply-notifications.ps1
+```
+
+Or on bash:
+```bash
+export TEAMS_WEBHOOK_URL="https://..."
+bash argocd/scripts/apply-notifications.sh
+```
+
+The script:
+1. Creates/updates `argocd-notifications-secret` in the `argocd` namespace.
+2. Applies `argocd/notifications/argocd-notifications-cm.yaml`.
+3. Restarts `argocd-notifications-controller` if it exists.
+
+Check:
+```powershell
+kubectl get cm argocd-notifications-cm -n argocd
+kubectl get secret argocd-notifications-secret -n argocd
+kubectl get deployment argocd-notifications-controller -n argocd
+```
 ## Open Argo CD UI
 Run:
 ```bash
