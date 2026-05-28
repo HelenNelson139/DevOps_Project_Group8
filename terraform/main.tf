@@ -40,3 +40,14 @@ module "database" {
   admin_user          = var.db_admin_user
   admin_password      = var.db_admin_password
 }
+
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  values_file = "${path.module}/../monitoring/helm/kube-prometheus-stack-values.yaml"
+  extra_values_files = [
+    "${path.module}/../monitoring/helm/alertmanager-teams-values.yaml"
+  ]
+
+  depends_on = [module.aks]
+}

@@ -19,6 +19,9 @@ Install or upgrade the monitoring stack:
 ```bash
 bash monitoring/scripts/install-monitoring.sh
 ```
+If Terraform manages the Helm release, use `terraform apply` from the `terraform/` folder instead.
+This script remains available as a manual fallback.
+
 The script installs `kube-prometheus-stack`, then applies:
 - alert rules from `monitoring/rules/`
 - service monitors from `monitoring/service-monitors/`

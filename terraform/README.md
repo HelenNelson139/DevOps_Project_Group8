@@ -5,9 +5,11 @@ Terraform is used to provision the Azure infrastructure for the UIT Course Regis
 - Virtual Network and subnets
 - Azure Container Registry
 - Azure Kubernetes Service
+- AKS node autoscaling
 - Azure Database for PostgreSQL Flexible Server
 - Private DNS for PostgreSQL
 - Role assignment for AKS to pull images from ACR
+- kube-prometheus-stack Helm release for monitoring
 ## Prerequisites
 Login to Azure:
 ```powershell
@@ -73,6 +75,23 @@ var.db_admin_password
 ```
 This is the PostgreSQL admin password for user `pgadmin`.
 Use a strong password and do not commit real passwords or `.tfvars` files.
+
+## Monitoring Helm Release
+Terraform manages the `kube-prometheus-stack` Helm release through `modules/monitoring`.
+
+If monitoring was already installed manually by script, import the existing Helm release before running `terraform apply`:
+```powershell
+terraform import module.monitoring.helm_release.kube_prometheus_stack monitoring/prometheus
+```
+
+Project-specific rules, ServiceMonitors, dashboards, and Teams webhook setup are still applied from the `monitoring/` scripts:
+```powershell
+.\monitoring\scripts\apply-monitoring-rules.ps1
+```
+```bash
+bash monitoring/scripts/apply-monitoring-rules.sh
+```
+
 ## Outputs
 ```powershell
 terraform output
