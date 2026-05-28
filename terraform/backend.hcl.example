@@ -1,0 +1,4 @@
+resource_group_name  = "uit-tfstate-rg"
+storage_account_name = "uitdkhptfstate0001"
+container_name       = "tfstate"
+key                  = "uit-course.terraform.tfstate"
