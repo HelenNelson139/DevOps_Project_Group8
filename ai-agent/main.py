@@ -1,4 +1,4 @@
-﻿import os
+import os
 import time
 import asyncio
 from typing import Dict, List, Tuple, Optional
@@ -47,6 +47,8 @@ SAFETY_ROLLBACK_ERROR_GAP = float(os.getenv("SAFETY_ROLLBACK_ERROR_GAP", "0.15")
 SAFETY_ROLLBACK_LAT_RATIO = float(os.getenv("SAFETY_ROLLBACK_LAT_RATIO", "2.5"))
 SAFETY_ROLLBACK_LAT_GAP_SEC = float(os.getenv("SAFETY_ROLLBACK_LAT_GAP_SEC", "0.12"))
 SAFETY_ROLLBACK_MIN_WEIGHT = float(os.getenv("SAFETY_ROLLBACK_MIN_WEIGHT", "5.0"))
+INSUFFICIENT_DATA_DECISION = os.getenv("INSUFFICIENT_DATA_DECISION", "Successful")
+INSUFFICIENT_DATA_CONFIDENCE = float(os.getenv("INSUFFICIENT_DATA_CONFIDENCE", "0.35"))
 
 app = FastAPI(title="Canary AI Agent Service")
 
@@ -224,6 +226,22 @@ def _evaluate_safety_guard(latest_raw: Dict[str, float], observed_weight: float)
 
     return "", "pass"
 
+def _decision_for_incomplete_data() -> Tuple[str, float, str]:
+    decision = INSUFFICIENT_DATA_DECISION.strip()
+    if decision not in {"Successful", "Running", "Rollback"}:
+        logger.warning(
+            "config_invalid name=INSUFFICIENT_DATA_DECISION value=%s fallback=Successful",
+            INSUFFICIENT_DATA_DECISION,
+        )
+        decision = "Successful"
+
+    confidence = max(0.0, min(1.0, INSUFFICIENT_DATA_CONFIDENCE))
+    if decision == "Successful":
+        return decision, confidence, "insufficient_data_fallback_success"
+    if decision == "Rollback":
+        return decision, confidence, "insufficient_data_fallback_rollback"
+    return decision, confidence, "insufficient_data"
+
 @app.post("/predict")
 async def predict(request: InferenceRequest):
     started_at = time.perf_counter()
@@ -255,13 +273,17 @@ async def predict(request: InferenceRequest):
         }
 
     if not data_complete:
-        logger.info("predict_decision app=%s target_weight=%.1f decision=Running reason='insufficient_data'", app_name, weight)
+        fallback_decision, fallback_confidence, fallback_reason = _decision_for_incomplete_data()
+        logger.info(
+            "predict_decision app=%s target_weight=%.1f decision=%s reason='%s'",
+            app_name, weight, fallback_decision, fallback_reason,
+        )
         return {
-            "action_id": -1, "decision": "Running", "confidence": 0.0, "traffic_signal": "hold",
+            "action_id": -1, "decision": fallback_decision, "confidence": fallback_confidence, "traffic_signal": "hold",
             "suggested_weight": observed_weight, "latency_ms": (time.perf_counter() - started_at) * 1000.0,
-            "reason": "insufficient_data", "data_complete": data_complete,
+            "reason": fallback_reason, "data_complete": data_complete,
             "metrics_raw": latest_raw, "metrics_normalized": latest_state,
-            "q_values": [], "model_decision": "Running", "guard_triggered": False,
+            "q_values": [], "model_decision": fallback_decision, "guard_triggered": False,
         }
 
     # --- AI INFERENCE ---
@@ -344,5 +366,6 @@ def model_info():
             "3": "rollback",
             "4": "rollback",
         },
+        "insufficient_data_decision": INSUFFICIENT_DATA_DECISION,
     }
 

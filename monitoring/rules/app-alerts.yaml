@@ -12,8 +12,7 @@ spec:
       rules:
         - alert: UITCourseHighHttpErrorRate
           expr: |
-            (
-              sum by (service) (rate(uit_course_http_requests_total{status_code=~"5.."}[5m]))
+            (sum by (service) (rate(uit_course_http_requests_total{status_code=~"5.."}[5m]))
               /
               clamp_min(sum by (service) (rate(uit_course_http_requests_total[5m])), 0.001)
             ) > 0.05
@@ -34,8 +33,8 @@ spec:
           labels:
             severity: warning
           annotations:
-            summary: "High HTTP p95 latency"
-            description: "Service {{ $labels.service }} has p95 latency above 1 second for 10 minutes."
+            summary: "High HTTP 95% latency"
+            description: "Service {{ $labels.service }} has 95% latency above 1 second for 10 minutes."
 
         - alert: UITCourseMetricsMissing
           expr: |

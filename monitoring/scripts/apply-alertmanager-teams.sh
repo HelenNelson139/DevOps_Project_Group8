@@ -1,14 +1,12 @@
 #!/bin/bash
 
 set -e
-
 if [ -z "$TEAMS_WEBHOOK_URL" ]; then
   echo "Set TEAMS_WEBHOOK_URL before running this script."
   exit 1
 fi
 
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
-
 kubectl create secret generic alertmanager-teams-webhook \
   -n monitoring \
   --from-literal=teams-webhook-url="$TEAMS_WEBHOOK_URL" \

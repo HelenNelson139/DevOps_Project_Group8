@@ -66,6 +66,7 @@ Or on bash:
 export TEAMS_WEBHOOK_URL="https://..."
 bash argocd/scripts/apply-notifications.sh
 ```
+Link webhook Teams= "https://default2dff09ac2b3b418299532b548e0d0b.39.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/aab4e8d2fc8840388d00de75914c5858/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=SpVqNK-sbfXN1Lr96jm02JkVyxttgTt9EbMMx0_AqY8"
 
 The script:
 1. Creates/updates `argocd-notifications-secret` in the `argocd` namespace.
