@@ -35,18 +35,11 @@ Terraform will ask for:
 ```text
 var.db_admin_password
 ```
-This is the PostgreSQL admin password for user `pgadmin`. `12345678`
+This is the PostgreSQL admin password for user `pgadmin`.
+Use a strong password and do not commit real passwords or `.tfvars` files.
 ## Outputs
 ```powershell
 terraform output
-```
-Important outputs:
-```text
-acr_login_server
-aks_cluster_name
-db_server_fqdn
-resource_group_name
-vnet_id
 ```
 ## Connect To AKS
 ```powershell
