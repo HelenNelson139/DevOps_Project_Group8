@@ -9,15 +9,15 @@ spec:
     - name: target-weight
   metrics:
     - name: ai-judgment
-      interval: 60s
-      count: 8
-      initialDelay: 180s
+      interval: 30s
+      count: 4
+      initialDelay: 90s
       # --- 1. TĂNG SỨC CHỊU ĐỰNG LỖI MẠNG (HTTP 500, Timeout) ---
       # Cho phép Agent lỗi kết nối hoặc Prometheus timeout tối đa 5 lần liên tiếp
       consecutiveErrorLimit: 5
       # --- 2. XỬ LÝ TRẠNG THÁI "CHỜ" CỦA AI ---
       # Cho phép AI Agent trả về "Running" nhiều lần hơn trước khi pause rollout
-      inconclusiveLimit: 8
+      inconclusiveLimit: 4
       provider:
         web:
           url: "http://canary-ai-agent-svc.default.svc.cluster.local/predict"
