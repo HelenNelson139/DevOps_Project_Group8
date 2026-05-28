@@ -10,7 +10,7 @@ spec:
   metrics:
     - name: ai-judgment
       interval: 60s
-      count: 5
+      count: 8
       initialDelay: 180s
       # --- 1. TĂNG SỨC CHỊU ĐỰNG LỖI MẠNG (HTTP 500, Timeout) ---
       # Cho phép Agent lỗi kết nối hoặc Prometheus timeout tối đa 5 lần liên tiếp
