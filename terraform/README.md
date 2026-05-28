@@ -5,6 +5,7 @@ Terraform is used to provision the Azure infrastructure for the UIT Course Regis
 - Virtual Network and subnets
 - Azure Container Registry
 - Azure Kubernetes Service
+- AKS node autoscaling
 - Azure Database for PostgreSQL Flexible Server
 - Private DNS for PostgreSQL
 - Role assignment for AKS to pull images from ACR
