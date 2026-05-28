@@ -23,9 +23,35 @@ data:
       "panels": [
         {
           "id": 1,
+          "type": "stat",
+          "title": "Service scrape health (1 = Prometheus can scrape)",
+          "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "avg by (job) (up{namespace=\"default\", job=~\"auth-service|course-service|registration-service|notification-service\"})",
+              "legendFormat": "{{job}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "green", "value": 1}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
           "type": "timeseries",
-          "title": "Request rate by service",
-          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "title": "HTTP request rate by service (req/s)",
+          "gridPos": {"h": 6, "w": 16, "x": 8, "y": 0},
           "targets": [
             {
               "refId": "A",
@@ -35,23 +61,29 @@ data:
           ]
         },
         {
-          "id": 2,
+          "id": 3,
           "type": "timeseries",
-          "title": "5xx error rate by service",
-          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "title": "HTTP 5xx error ratio by service (0 = no server errors)",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
           "targets": [
             {
               "refId": "A",
-              "expr": "sum by (service) (rate(uit_course_http_requests_total{status_code=~\"5..\"}[5m])) / clamp_min(sum by (service) (rate(uit_course_http_requests_total[5m])), 0.001)",
+              "expr": "(sum by (service) (rate(uit_course_http_requests_total{status_code=~\"5..\"}[5m])) / clamp_min(sum by (service) (rate(uit_course_http_requests_total[5m])), 0.001)) or on(service) (0 * sum by (service) (rate(uit_course_http_requests_total[5m])))",
               "legendFormat": "{{service}}"
             }
-          ]
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "min": 0,
+              "unit": "percentunit"
+            }
+          }
         },
         {
-          "id": 3,
+          "id": 4,
           "type": "timeseries",
-          "title": "p95 latency by service",
-          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+          "title": "HTTP p95 latency by service (seconds)",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
           "targets": [
             {
               "refId": "A",
@@ -61,15 +93,33 @@ data:
           ]
         },
         {
-          "id": 4,
+          "id": 5,
           "type": "timeseries",
-          "title": "Node.js heap used",
-          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+          "title": "Node.js heap used by service (MB)",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
           "targets": [
             {
               "refId": "A",
-              "expr": "uit_course_nodejs_memory_bytes{type=\"heap_used\"}",
+              "expr": "uit_course_nodejs_memory_bytes{type=\"heap_used\"} / 1024 / 1024",
               "legendFormat": "{{service}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "decmbytes"
+            }
+          }
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "HTTP requests by status code (req/s)",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (service, status_code) (rate(uit_course_http_requests_total[5m]))",
+              "legendFormat": "{{service}} {{status_code}}"
             }
           ]
         }
