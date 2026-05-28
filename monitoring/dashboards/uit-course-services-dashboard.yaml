@@ -24,7 +24,7 @@ data:
         {
           "id": 1,
           "type": "stat",
-          "title": "Service scrape health (1 = Prometheus can scrape)",
+          "title": "Scrape health",
           "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
           "targets": [
             {
@@ -50,7 +50,7 @@ data:
         {
           "id": 2,
           "type": "timeseries",
-          "title": "HTTP request rate by service (req/s)",
+          "title": "Request rate",
           "gridPos": {"h": 6, "w": 16, "x": 8, "y": 0},
           "targets": [
             {
@@ -63,7 +63,7 @@ data:
         {
           "id": 3,
           "type": "timeseries",
-          "title": "HTTP 5xx error ratio by service (0 = no server errors)",
+          "title": "5xx errors",
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
           "targets": [
             {
@@ -75,6 +75,7 @@ data:
           "fieldConfig": {
             "defaults": {
               "min": 0,
+              "max": 1,
               "unit": "percentunit"
             }
           }
@@ -82,7 +83,7 @@ data:
         {
           "id": 4,
           "type": "timeseries",
-          "title": "HTTP p95 latency by service (seconds)",
+          "title": "P95 latency",
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
           "targets": [
             {
@@ -95,12 +96,12 @@ data:
         {
           "id": 5,
           "type": "timeseries",
-          "title": "Node.js heap used by service (MB)",
+          "title": "Heap memory",
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
           "targets": [
             {
               "refId": "A",
-              "expr": "uit_course_nodejs_memory_bytes{type=\"heap_used\"} / 1024 / 1024",
+              "expr": "avg by (service) (uit_course_nodejs_memory_bytes{type=\"heap_used\"}) / 1024 / 1024",
               "legendFormat": "{{service}}"
             }
           ],
@@ -113,7 +114,7 @@ data:
         {
           "id": 6,
           "type": "timeseries",
-          "title": "HTTP requests by status code (req/s)",
+          "title": "Status codes",
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
           "targets": [
             {
