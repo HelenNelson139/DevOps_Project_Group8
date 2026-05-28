@@ -145,27 +145,17 @@ Useful dashboards:
 - `Kubernetes / Compute Resources / Pod`
 - `Kubernetes / Compute Resources / Node`
 - `UIT Course Services`
-
 The `UIT Course Services` dashboard focuses on application-level signals:
-
 - `Service scrape health`: shows whether Prometheus can scrape each service. `1` means the metrics endpoint is reachable, `0` means it is down.
 - `HTTP request rate by service`: shows request volume per second for each service.
 - `HTTP 5xx error ratio by service`: shows the percentage of server errors. When a service has traffic but no 5xx errors, the panel shows `0` instead of `No data`.
 - `HTTP p95 latency by service`: shows the slowest 5% request latency boundary. For example, `0.4s` means 95% of requests are faster than 0.4 seconds.
 - `Node.js heap used by service`: shows JavaScript heap memory used by each Node.js service.
 - `HTTP requests by status code`: splits request traffic by HTTP status code so errors and successful responses can be compared.
+```powershell
+kubectl apply -f monitoring/dashboards/uit-course-services-dashboard.yaml
+```
 
-For this project, select the `default` namespace to view app metrics for:
-
-- `api-gateway`
-- `auth-service`
-- `course-service`
-- `registration-service`
-- `notification-service`
-- `redis`
-- `rabbitmq`
-The `ingress-nginx` namespace shows public ingress traffic.
-The `monitoring` namespace shows Prometheus, Grafana, and Alertmanager traffic.
 ## Prometheus
 To open Prometheus directly:
 ```bash
@@ -175,7 +165,6 @@ Then open:
 ```text
 http://localhost:9090
 ```
-
 If HPA shows `cpu: <unknown>`, wait a short time and check again:
 ```bash
 kubectl get hpa
