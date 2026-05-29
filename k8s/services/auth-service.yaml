@@ -15,7 +15,7 @@ spec:
       containers:
         - name: auth-service
           # TODO: Cập nhật ACR url (vd: uitdkhpacr2026.azurecr.io/auth-service:latest)
-          image: 'uitdkhpacr2026.azurecr.io/auth-service:29b02760266121d4395405dd5bc00ccece6ff5a4'
+          image: 'uitdkhpacr2026.azurecr.io/auth-service:aa6dc0f693b96d8eb1949e1b0d9589167227294f'
           resources:
             requests:
               cpu: "100m"
