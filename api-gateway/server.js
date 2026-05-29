@@ -241,5 +241,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`api-gateway listening on ${PORT} - demo successful api gateway rollout`);
+  console.log(`api-gateway listening on ${PORT}-demo success`);
 });
