@@ -33,6 +33,12 @@ spec:
               value: models/model_canary_drqn_best.pth
             - name: PROMETHEUS_URL
               value: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+            - name: HTTP_METRICS_SOURCE
+              value: ingress
+            - name: INGRESS_REQUESTS_METRIC
+              value: nginx_ingress_controller_requests
+            - name: INGRESS_DURATION_BUCKET_METRIC
+              value: nginx_ingress_controller_request_duration_seconds_bucket
           livenessProbe:
             httpGet:
               path: /health
