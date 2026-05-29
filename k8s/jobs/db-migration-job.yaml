@@ -18,7 +18,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: db-migration
-          image: 'uitdkhpacr2026.azurecr.io/db-migration:94c54fc04549e31f5efd413b2cbf12be39912adf'
+          image: 'uitdkhpacr2026.azurecr.io/db-migration:d9c19832792d7e6dea27d732d62e0dbed1ae7291'
           imagePullPolicy: Always
           env:
             - name: DATABASE_URL
