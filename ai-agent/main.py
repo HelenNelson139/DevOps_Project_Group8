@@ -49,6 +49,11 @@ SAFETY_ROLLBACK_LAT_GAP_SEC = float(os.getenv("SAFETY_ROLLBACK_LAT_GAP_SEC", "0.
 SAFETY_ROLLBACK_MIN_WEIGHT = float(os.getenv("SAFETY_ROLLBACK_MIN_WEIGHT", "5.0"))
 INSUFFICIENT_DATA_DECISION = os.getenv("INSUFFICIENT_DATA_DECISION", "Successful")
 INSUFFICIENT_DATA_CONFIDENCE = float(os.getenv("INSUFFICIENT_DATA_CONFIDENCE", "0.35"))
+HTTP_REQUESTS_METRIC = os.getenv("HTTP_REQUESTS_METRIC", "uit_course_http_requests_total")
+HTTP_DURATION_BUCKET_METRIC = os.getenv(
+    "HTTP_DURATION_BUCKET_METRIC",
+    "uit_course_http_request_duration_seconds_bucket",
+)
 
 app = FastAPI(title="Canary AI Agent Service")
 
@@ -151,15 +156,15 @@ async def _build_history_from_prometheus(app_info: AppInfo) -> Tuple[List[List[f
     pod_selector = _pod_selector_for(app_info)
 
     tasks = [
-        _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{canary_svc}\",status=~\"5..\"}}[1m])) / clamp_min(sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m])), 0.001)", start_ts, end_ts, PROM_QUERY_STEP, empty_as_zero=True),
-        _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{stable_svc}\",status=~\"5..\"}}[1m])) / clamp_min(sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m])), 0.001)", start_ts, end_ts, PROM_QUERY_STEP, empty_as_zero=True),
-        _prom_query_range(f"histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m])))", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m])))", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
+        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{canary_svc}\",status_code=~\"5..\"}}[1m])) / clamp_min(sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m])), 0.001)", start_ts, end_ts, PROM_QUERY_STEP, empty_as_zero=True),
+        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{stable_svc}\",status_code=~\"5..\"}}[1m])) / clamp_min(sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m])), 0.001)", start_ts, end_ts, PROM_QUERY_STEP, empty_as_zero=True),
+        _prom_query_range(f"histogram_quantile(0.95, sum by (le) (rate({HTTP_DURATION_BUCKET_METRIC}{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m])))", start_ts, end_ts, PROM_QUERY_STEP),
+        _prom_query_range(f"histogram_quantile(0.95, sum by (le) (rate({HTTP_DURATION_BUCKET_METRIC}{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m])))", start_ts, end_ts, PROM_QUERY_STEP),
+        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
+        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
         _prom_query_range(f"avg(rate(container_cpu_usage_seconds_total{{namespace=\"{ns}\",pod=~\"{pod_selector}\",container!=\"\",container!=\"POD\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
         _prom_query_range(f"avg(container_memory_working_set_bytes{{namespace=\"{ns}\",pod=~\"{pod_selector}\",container!=\"\",container!=\"POD\"}}) / 1048576", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"sum(rate(http_requests_total{{namespace=\"{ns}\",service=~\"{canary_svc}|{stable_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP)
+        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=~\"{canary_svc}|{stable_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP)
     ]
 
     results = await asyncio.gather(*tasks)
