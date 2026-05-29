@@ -49,7 +49,12 @@ SAFETY_ROLLBACK_LAT_GAP_SEC = float(os.getenv("SAFETY_ROLLBACK_LAT_GAP_SEC", "0.
 SAFETY_ROLLBACK_MIN_WEIGHT = float(os.getenv("SAFETY_ROLLBACK_MIN_WEIGHT", "5.0"))
 INSUFFICIENT_DATA_DECISION = os.getenv("INSUFFICIENT_DATA_DECISION", "Successful")
 INSUFFICIENT_DATA_CONFIDENCE = float(os.getenv("INSUFFICIENT_DATA_CONFIDENCE", "0.35"))
-HTTP_METRICS_SOURCE = os.getenv("HTTP_METRICS_SOURCE", "ingress").lower()
+HTTP_METRICS_SOURCE = os.getenv("HTTP_METRICS_SOURCE", "gateway").lower()
+GATEWAY_REQUESTS_METRIC = os.getenv("GATEWAY_REQUESTS_METRIC", "api_gateway_http_requests_total")
+GATEWAY_DURATION_BUCKET_METRIC = os.getenv(
+    "GATEWAY_DURATION_BUCKET_METRIC",
+    "api_gateway_http_request_duration_seconds_bucket",
+)
 HTTP_REQUESTS_METRIC = os.getenv("HTTP_REQUESTS_METRIC", "uit_course_http_requests_total")
 HTTP_DURATION_BUCKET_METRIC = os.getenv(
     "HTTP_DURATION_BUCKET_METRIC",
@@ -155,6 +160,17 @@ def _latest_value(values: List[float], default: float = 0.0) -> float:
     return float(values[-1]) if values else default
 
 def _http_metric_queries(source: str, namespace: str, canary_service: str, stable_service: str) -> List[Tuple[str, bool]]:
+    if source == "gateway":
+        return [
+            (f"sum(rate({GATEWAY_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{canary_service}\",status_code=~\"5..\"}}[1m])) / clamp_min(sum(rate({GATEWAY_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{canary_service}\"}}[1m])), 0.001)", True),
+            (f"sum(rate({GATEWAY_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{stable_service}\",status_code=~\"5..\"}}[1m])) / clamp_min(sum(rate({GATEWAY_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{stable_service}\"}}[1m])), 0.001)", True),
+            (f"histogram_quantile(0.95, sum by (le) (rate({GATEWAY_DURATION_BUCKET_METRIC}{{namespace=\"{namespace}\",service=\"{canary_service}\"}}[1m])))", False),
+            (f"histogram_quantile(0.95, sum by (le) (rate({GATEWAY_DURATION_BUCKET_METRIC}{{namespace=\"{namespace}\",service=\"{stable_service}\"}}[1m])))", False),
+            (f"sum(rate({GATEWAY_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{canary_service}\"}}[1m]))", False),
+            (f"sum(rate({GATEWAY_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{stable_service}\"}}[1m]))", False),
+            (f"sum(rate({GATEWAY_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=~\"{canary_service}|{stable_service}\"}}[1m]))", False),
+        ]
+
     if source == "ingress":
         return [
             (f"sum(rate({INGRESS_REQUESTS_METRIC}{{service=\"{canary_service}\",status=~\"5..\"}}[1m])) / clamp_min(sum(rate({INGRESS_REQUESTS_METRIC}{{service=\"{canary_service}\"}}[1m])), 0.001)", True),
@@ -193,8 +209,8 @@ async def _build_history_from_prometheus(app_info: AppInfo) -> Tuple[List[List[f
     pod_selector = _pod_selector_for(app_info)
 
     http_results = await _query_http_metrics(HTTP_METRICS_SOURCE, ns, canary_svc, stable_svc, start_ts, end_ts)
-    if HTTP_METRICS_SOURCE == "ingress" and not all(http_results[2:6]):
-        logger.warning("http_metrics_fallback source=ingress fallback=app reason=missing_gateway_series")
+    if HTTP_METRICS_SOURCE in {"gateway", "ingress"} and not all(http_results[2:6]):
+        logger.warning("http_metrics_fallback source=%s fallback=app reason=missing_gateway_series", HTTP_METRICS_SOURCE)
         http_results = await _query_http_metrics("app", ns, canary_svc, stable_svc, start_ts, end_ts)
 
     cpu, mem = await asyncio.gather(
