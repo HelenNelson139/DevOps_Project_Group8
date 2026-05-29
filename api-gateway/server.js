@@ -219,6 +219,7 @@ function proxyRequest(req, res, route) {
 const server = http.createServer((req, res) => {
   const urlPath = new URL(req.url, "http://localhost").pathname;
 
+
   
   if (urlPath === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain" });
@@ -242,5 +243,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`api-gateway listening on ${PORT}`);
+  console.log(`api-gateway listening on ${PORT}-demo healthy`);
 });
