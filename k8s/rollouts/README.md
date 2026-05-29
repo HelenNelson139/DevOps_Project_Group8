@@ -47,6 +47,6 @@ container_memory_working_set_bytes{namespace="default",pod=~"api-gateway-rollout
 ```
 HTTP traffic metrics must also exist for the stable and canary services, or the agent will return `Running` with `reason="insufficient_data"`:
 ```promql
-http_requests_total{namespace="default",service=~"api-gateway-canary|api-gateway-stable"}
-http_request_duration_seconds_bucket{namespace="default",service=~"api-gateway-canary|api-gateway-stable"}
+api_gateway_http_requests_total{namespace="default",service=~"api-gateway-canary|api-gateway-stable"}
+api_gateway_http_request_duration_seconds_bucket{namespace="default",service=~"api-gateway-canary|api-gateway-stable"}
 ```

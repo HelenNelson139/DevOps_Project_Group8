@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: api-gateway-stable
   namespace: default
+  labels:
+    app: api-gateway
+    app.kubernetes.io/name: api-gateway
+    rollout-role: stable
 spec:
   selector:
     app: api-gateway
@@ -16,6 +20,10 @@ kind: Service
 metadata:
   name: api-gateway-canary
   namespace: default
+  labels:
+    app: api-gateway
+    app.kubernetes.io/name: api-gateway
+    rollout-role: canary
 spec:
   selector:
     app: api-gateway

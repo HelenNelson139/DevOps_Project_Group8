@@ -24,13 +24,13 @@ data:
         {
           "id": 1,
           "type": "stat",
-          "title": "Ingress scrape",
+          "title": "Gateway scrape",
           "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
           "targets": [
             {
               "refId": "A",
-              "expr": "max(up{namespace=\"ingress-nginx\", job=~\".*ingress.*|ingress-nginx.*\"})",
-              "legendFormat": "ingress-nginx"
+              "expr": "max(up{namespace=\"default\", service=~\"api-gateway-stable|api-gateway-canary\"})",
+              "legendFormat": "api-gateway"
             }
           ],
           "fieldConfig": {
@@ -55,7 +55,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "sum by (service) (rate(nginx_ingress_controller_requests{service=~\"api-gateway-stable|api-gateway-canary\"}[5m]))",
+              "expr": "sum by (service) (rate(api_gateway_http_requests_total{namespace=\"default\",service=~\"api-gateway-stable|api-gateway-canary\"}[5m]))",
               "legendFormat": "{{service}}"
             }
           ]
@@ -68,7 +68,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "(sum by (service) (rate(nginx_ingress_controller_requests{service=~\"api-gateway-stable|api-gateway-canary\",status=~\"5..\"}[5m])) / clamp_min(sum by (service) (rate(nginx_ingress_controller_requests{service=~\"api-gateway-stable|api-gateway-canary\"}[5m])), 0.001)) or on(service) (0 * sum by (service) (rate(nginx_ingress_controller_requests{service=~\"api-gateway-stable|api-gateway-canary\"}[5m])))",
+              "expr": "(sum by (service) (rate(api_gateway_http_requests_total{namespace=\"default\",service=~\"api-gateway-stable|api-gateway-canary\",status_code=~\"5..\"}[5m])) / clamp_min(sum by (service) (rate(api_gateway_http_requests_total{namespace=\"default\",service=~\"api-gateway-stable|api-gateway-canary\"}[5m])), 0.001)) or on(service) (0 * sum by (service) (rate(api_gateway_http_requests_total{namespace=\"default\",service=~\"api-gateway-stable|api-gateway-canary\"}[5m])))",
               "legendFormat": "{{service}}"
             }
           ],
@@ -88,7 +88,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "histogram_quantile(0.95, sum by (service, le) (rate(nginx_ingress_controller_request_duration_seconds_bucket{service=~\"api-gateway-stable|api-gateway-canary\"}[5m])))",
+              "expr": "histogram_quantile(0.95, sum by (service, le) (rate(api_gateway_http_request_duration_seconds_bucket{namespace=\"default\",service=~\"api-gateway-stable|api-gateway-canary\"}[5m])))",
               "legendFormat": "{{service}}"
             }
           ]

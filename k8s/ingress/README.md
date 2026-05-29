@@ -6,10 +6,9 @@ helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
 helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
   --namespace ingress-nginx \
-  --create-namespace \
-  --set controller.metrics.enabled=true
+  --create-namespace
 ```
-The metrics endpoint is required for API Gateway stable/canary monitoring and AI rollout analysis.
+API Gateway stable/canary metrics are exported by the API Gateway pods themselves at `/metrics`.
 
 ## Apply Ingress
 ```bash
