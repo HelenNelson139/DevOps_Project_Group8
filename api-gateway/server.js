@@ -219,14 +219,6 @@ function proxyRequest(req, res, route) {
 const server = http.createServer((req, res) => {
   const urlPath = new URL(req.url, "http://localhost").pathname;
 
-  if (urlPath.startsWith("/api/courses")) {
-  const startedAt = performance.now();
-  recordGatewayRequest(req, "courses", "course-service", 500, startedAt);
-  res.writeHead(500, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ error: "demo canary failure" }));
-  return;
-}
-  
   if (urlPath === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("ok\n");
@@ -249,5 +241,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`api-gateway listening on ${PORT}-demo rollback`);
+  console.log(`api-gateway listening on ${PORT}-demo recovery`);
 });
