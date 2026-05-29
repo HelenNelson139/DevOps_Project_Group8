@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: ai-agent
-          image: 'uitdkhpacr2026.azurecr.io/canary-ai-agent:47ba74acd0c3274d325ca680001f74dcbd63daf1'
+          image: 'uitdkhpacr2026.azurecr.io/canary-ai-agent:001532c1aee84dbc22d0859683c145a30f21eaf7'
           resources:
             requests:
               cpu: "100m"
