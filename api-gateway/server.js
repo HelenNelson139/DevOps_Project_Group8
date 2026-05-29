@@ -249,5 +249,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`api-gateway listening on ${PORT}-demo 2 rollback`);
+  console.log(`api-gateway listening on ${PORT}`);
 });
