@@ -27,6 +27,14 @@ The script installs `kube-prometheus-stack`, then applies:
 - service monitors from `monitoring/service-monitors/`
 - Grafana dashboards from `monitoring/dashboards/`
 
+NGINX Ingress metrics must be enabled for API Gateway stable/canary analysis:
+```bash
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  --set controller.metrics.enabled=true
+```
+
 ## Apply Project Monitoring Only
 Use this when Prometheus/Grafana already exists and only rules, ServiceMonitors, or dashboards changed.
 
@@ -59,6 +67,18 @@ Collected services:
 - `course-service`
 - `registration-service`
 - `notification-service`
+
+API Gateway canary metrics come from NGINX Ingress Controller:
+- `nginx_ingress_controller_requests`
+- `nginx_ingress_controller_request_duration_seconds_bucket`
+
+Prometheus discovers the ingress controller through:
+```text
+monitoring/service-monitors/ingress-nginx.yaml
+```
+The AI Agent uses these labels to compare:
+- `service="api-gateway-stable"`
+- `service="api-gateway-canary"`
 ## Alerts
 Rule files:
 
@@ -109,6 +129,7 @@ Stop port-forwarding with `Ctrl + C`.
 Useful dashboards:
 
 - `UIT Course Services`
+- `API Gateway Canary`
 - `Kubernetes / Compute Resources / Cluster`
 - `Kubernetes / Compute Resources / Namespace`
 - `Kubernetes / Compute Resources / Pod`
@@ -123,6 +144,13 @@ Panels:
 - `P95 latency`: 95% of requests are faster than this value.
 - `Heap memory`: Node.js heap memory usage in MB.
 - `Status codes`: request rate grouped by HTTP status code.
+
+## API Gateway Canary Dashboard
+Panels:
+- `Ingress scrape`: Prometheus can scrape NGINX Ingress metrics.
+- `Gateway RPS`: request rate for `api-gateway-stable` and `api-gateway-canary`.
+- `Gateway 5xx`: server error ratio for stable and canary traffic.
+- `Gateway P95`: p95 request latency for stable and canary traffic.
 
 ## Prometheus
 Open Prometheus:

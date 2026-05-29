@@ -4,8 +4,13 @@ The application is exposed through NGINX Ingress Controller on AKS.
 ```bash
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
-helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  --set controller.metrics.enabled=true
 ```
+The metrics endpoint is required for API Gateway stable/canary monitoring and AI rollout analysis.
+
 ## Apply Ingress
 ```bash
 kubectl apply -f k8s/ingress/ingress.yaml

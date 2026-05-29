@@ -49,10 +49,16 @@ SAFETY_ROLLBACK_LAT_GAP_SEC = float(os.getenv("SAFETY_ROLLBACK_LAT_GAP_SEC", "0.
 SAFETY_ROLLBACK_MIN_WEIGHT = float(os.getenv("SAFETY_ROLLBACK_MIN_WEIGHT", "5.0"))
 INSUFFICIENT_DATA_DECISION = os.getenv("INSUFFICIENT_DATA_DECISION", "Successful")
 INSUFFICIENT_DATA_CONFIDENCE = float(os.getenv("INSUFFICIENT_DATA_CONFIDENCE", "0.35"))
+HTTP_METRICS_SOURCE = os.getenv("HTTP_METRICS_SOURCE", "ingress").lower()
 HTTP_REQUESTS_METRIC = os.getenv("HTTP_REQUESTS_METRIC", "uit_course_http_requests_total")
 HTTP_DURATION_BUCKET_METRIC = os.getenv(
     "HTTP_DURATION_BUCKET_METRIC",
     "uit_course_http_request_duration_seconds_bucket",
+)
+INGRESS_REQUESTS_METRIC = os.getenv("INGRESS_REQUESTS_METRIC", "nginx_ingress_controller_requests")
+INGRESS_DURATION_BUCKET_METRIC = os.getenv(
+    "INGRESS_DURATION_BUCKET_METRIC",
+    "nginx_ingress_controller_request_duration_seconds_bucket",
 )
 
 app = FastAPI(title="Canary AI Agent Service")
@@ -148,6 +154,37 @@ def _normalize_series(values: List[float], length: int, default: float = 0.0) ->
 def _latest_value(values: List[float], default: float = 0.0) -> float:
     return float(values[-1]) if values else default
 
+def _http_metric_queries(source: str, namespace: str, canary_service: str, stable_service: str) -> List[Tuple[str, bool]]:
+    if source == "ingress":
+        return [
+            (f"sum(rate({INGRESS_REQUESTS_METRIC}{{service=\"{canary_service}\",status=~\"5..\"}}[1m])) / clamp_min(sum(rate({INGRESS_REQUESTS_METRIC}{{service=\"{canary_service}\"}}[1m])), 0.001)", True),
+            (f"sum(rate({INGRESS_REQUESTS_METRIC}{{service=\"{stable_service}\",status=~\"5..\"}}[1m])) / clamp_min(sum(rate({INGRESS_REQUESTS_METRIC}{{service=\"{stable_service}\"}}[1m])), 0.001)", True),
+            (f"histogram_quantile(0.95, sum by (le) (rate({INGRESS_DURATION_BUCKET_METRIC}{{service=\"{canary_service}\"}}[1m])))", False),
+            (f"histogram_quantile(0.95, sum by (le) (rate({INGRESS_DURATION_BUCKET_METRIC}{{service=\"{stable_service}\"}}[1m])))", False),
+            (f"sum(rate({INGRESS_REQUESTS_METRIC}{{service=\"{canary_service}\"}}[1m]))", False),
+            (f"sum(rate({INGRESS_REQUESTS_METRIC}{{service=\"{stable_service}\"}}[1m]))", False),
+            (f"sum(rate({INGRESS_REQUESTS_METRIC}{{service=~\"{canary_service}|{stable_service}\"}}[1m]))", False),
+        ]
+
+    return [
+        (f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{canary_service}\",status_code=~\"5..\"}}[1m])) / clamp_min(sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{canary_service}\"}}[1m])), 0.001)", True),
+        (f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{stable_service}\",status_code=~\"5..\"}}[1m])) / clamp_min(sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{stable_service}\"}}[1m])), 0.001)", True),
+        (f"histogram_quantile(0.95, sum by (le) (rate({HTTP_DURATION_BUCKET_METRIC}{{namespace=\"{namespace}\",service=\"{canary_service}\"}}[1m])))", False),
+        (f"histogram_quantile(0.95, sum by (le) (rate({HTTP_DURATION_BUCKET_METRIC}{{namespace=\"{namespace}\",service=\"{stable_service}\"}}[1m])))", False),
+        (f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{canary_service}\"}}[1m]))", False),
+        (f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=\"{stable_service}\"}}[1m]))", False),
+        (f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{namespace}\",service=~\"{canary_service}|{stable_service}\"}}[1m]))", False),
+    ]
+
+async def _query_http_metrics(source: str, namespace: str, canary_service: str, stable_service: str, start_ts: int, end_ts: int):
+    queries = _http_metric_queries(source, namespace, canary_service, stable_service)
+    return await asyncio.gather(
+        *[
+            _prom_query_range(query, start_ts, end_ts, PROM_QUERY_STEP, empty_as_zero=empty_as_zero)
+            for query, empty_as_zero in queries
+        ]
+    )
+
 async def _build_history_from_prometheus(app_info: AppInfo) -> Tuple[List[List[float]], bool, float, Dict[str, float], Dict[str, float], float]:
     build_started_at = time.perf_counter()
     end_ts = int(time.time())
@@ -155,20 +192,16 @@ async def _build_history_from_prometheus(app_info: AppInfo) -> Tuple[List[List[f
     ns, canary_svc, stable_svc = app_info.namespace, app_info.canary_service, app_info.stable_service
     pod_selector = _pod_selector_for(app_info)
 
-    tasks = [
-        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{canary_svc}\",status_code=~\"5..\"}}[1m])) / clamp_min(sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m])), 0.001)", start_ts, end_ts, PROM_QUERY_STEP, empty_as_zero=True),
-        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{stable_svc}\",status_code=~\"5..\"}}[1m])) / clamp_min(sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m])), 0.001)", start_ts, end_ts, PROM_QUERY_STEP, empty_as_zero=True),
-        _prom_query_range(f"histogram_quantile(0.95, sum by (le) (rate({HTTP_DURATION_BUCKET_METRIC}{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m])))", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"histogram_quantile(0.95, sum by (le) (rate({HTTP_DURATION_BUCKET_METRIC}{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m])))", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{canary_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=\"{stable_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
+    http_results = await _query_http_metrics(HTTP_METRICS_SOURCE, ns, canary_svc, stable_svc, start_ts, end_ts)
+    if HTTP_METRICS_SOURCE == "ingress" and not all(http_results[2:6]):
+        logger.warning("http_metrics_fallback source=ingress fallback=app reason=missing_gateway_series")
+        http_results = await _query_http_metrics("app", ns, canary_svc, stable_svc, start_ts, end_ts)
+
+    cpu, mem = await asyncio.gather(
         _prom_query_range(f"avg(rate(container_cpu_usage_seconds_total{{namespace=\"{ns}\",pod=~\"{pod_selector}\",container!=\"\",container!=\"POD\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP),
         _prom_query_range(f"avg(container_memory_working_set_bytes{{namespace=\"{ns}\",pod=~\"{pod_selector}\",container!=\"\",container!=\"POD\"}}) / 1048576", start_ts, end_ts, PROM_QUERY_STEP),
-        _prom_query_range(f"sum(rate({HTTP_REQUESTS_METRIC}{{namespace=\"{ns}\",service=~\"{canary_svc}|{stable_svc}\"}}[1m]))", start_ts, end_ts, PROM_QUERY_STEP)
-    ]
-
-    results = await asyncio.gather(*tasks)
-    (e_canary, e_stable, l_canary, l_stable, canary_rps, stable_rps, cpu, mem, rps) = results
+    )
+    (e_canary, e_stable, l_canary, l_stable, canary_rps, stable_rps, rps) = http_results
 
     data_complete = all(series for series in (l_canary, l_stable, canary_rps, stable_rps, cpu, mem, rps))
     latest_canary_rps = _latest_value(canary_rps)
